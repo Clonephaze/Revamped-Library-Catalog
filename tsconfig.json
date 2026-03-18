@@ -1,0 +1,4 @@
+{
+  // Nuxt generates .nuxt/tsconfig.json at build time; this file extends it.
+  "extends": "./.nuxt/tsconfig.json"
+}
