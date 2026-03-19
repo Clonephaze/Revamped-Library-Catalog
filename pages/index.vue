@@ -10,6 +10,7 @@ interface CatalogItem {
   description: string
   author: string
   sourceUrl: string
+  tags: string[]
 }
 
 const { data: catalog, status, error } = await useFetch<CatalogItem[]>('/api/catalog')

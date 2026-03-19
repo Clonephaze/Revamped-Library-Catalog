@@ -8,6 +8,7 @@ interface CatalogItem {
   description: string
   author: string
   sourceUrl: string
+  tags: string[]
 }
 
 const props = defineProps<{
@@ -70,7 +71,10 @@ onUnmounted(() => {
 
             <!-- Info -->
             <div class="modal-info">
-              <span class="badge badge--category">{{ model.category }}</span>
+              <div class="modal-badges">
+                <span class="badge badge--category">{{ model.category }}</span>
+                <span v-for="tag in model.tags" :key="tag" class="badge badge--tag" :class="`badge--tag-${tag.toLowerCase().replace(/\s+/g, '-')}`">{{ tag }}</span>
+              </div>
 
               <h2 class="modal-title">{{ model.name }}</h2>
 
@@ -110,6 +114,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.modal-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

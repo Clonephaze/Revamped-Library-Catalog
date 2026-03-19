@@ -396,6 +396,26 @@ a:hover {
   color: #991b1b;
 }
 
+.badge--tag {
+  background-color: #f3f0ff;
+  color: #5b21b6;
+}
+
+.badge--tag-staff-favorite {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge--tag-popular {
+  background-color: #ffe4e6;
+  color: #9f1239;
+}
+
+.badge--tag-new {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
 /* --------------------------------------------------------------------------
    Forms
    -------------------------------------------------------------------------- */

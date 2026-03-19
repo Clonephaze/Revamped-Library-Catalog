@@ -8,6 +8,7 @@ interface CatalogItem {
   description: string
   author: string
   sourceUrl: string
+  tags: string[]
 }
 
 const props = defineProps<{

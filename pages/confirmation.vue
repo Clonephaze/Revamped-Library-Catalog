@@ -47,6 +47,12 @@ if (!name && !model) {
       </ul>
     </div>
 
+    <!-- Pickup disclaimer -->
+    <div class="alert alert--info" style="margin-bottom: 1.5rem">
+      <strong>Please note:</strong> Prints must be picked up within one week of completion.
+      Unclaimed prints will be placed in the community bin and become available for anyone to take.
+    </div>
+
     <!-- Actions -->
     <div class="action-stack">
       <NuxtLink to="/status" class="btn btn--secondary btn--full">

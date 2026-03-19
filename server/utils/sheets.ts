@@ -27,6 +27,7 @@ export interface CatalogItem {
   imageUrl: string
   author: string
   sourceUrl: string
+  tags: string[]
 }
 
 export interface Filament {
@@ -103,6 +104,7 @@ function rowToCatalogItem(row: string[]): CatalogItem {
     author: row[4] ?? '',
     sourceUrl: row[5] ?? '',
     imageUrl: row[6] ?? '',
+    tags: (row[7] ?? '').split(',').map(t => t.trim()).filter(Boolean),
   }
 }
 
@@ -134,7 +136,7 @@ export async function getCatalog(): Promise<CatalogItem[]> {
   const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: 'catalog!A2:G',
+    range: 'catalog!A2:H',
   })
 
   const rows = (response.data.values ?? []) as string[][]
@@ -251,44 +253,13 @@ export async function submitPrint(data: PrintSubmission): Promise<void> {
   const client = sheetsClient()
   const spreadsheetId = getSpreadsheetId()
 
-  // We need the queue sheet's numeric sheetId for insertDimension.
-  const meta = await client.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets.properties',
-  })
-  const queueSheet = meta.data.sheets?.find(
-    (s) => s.properties?.title === 'queue',
-  )
-  const sheetId = queueSheet?.properties?.sheetId ?? 0
-
   const now = new Date()
   const requestDate = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`
 
-  await client.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          // Insert a blank row at index 1 (row 2, right below headers)
-          insertDimension: {
-            range: {
-              sheetId,
-              dimension: 'ROWS',
-              startIndex: 1,
-              endIndex: 2,
-            },
-            inheritFromBefore: false,
-          },
-        },
-      ],
-    },
-  })
-
-  // Now write data into the newly inserted row 2
-  await client.spreadsheets.values.update({
+  await client.spreadsheets.values.append({
     spreadsheetId,
     range: 'queue!A2:F2',
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: 'RAW',
     requestBody: {
       values: [
         [
