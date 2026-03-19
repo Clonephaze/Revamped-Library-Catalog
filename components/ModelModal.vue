@@ -127,7 +127,7 @@ onUnmounted(() => {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 40px rgba(9, 53, 71, 0.25);
-  max-width: 760px;
+  max-width: 900px;
   width: 100%;
   max-height: 90vh;
   display: flex;
@@ -143,8 +143,8 @@ onUnmounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: none;
-  background: rgba(9, 53, 71, 0.08);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text);
   font-size: 1rem;
   cursor: pointer;
@@ -152,27 +152,28 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   transition: background 0.15s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .modal-close:hover {
-  background: rgba(9, 53, 71, 0.16);
+  background: #f0f0f0;
 }
 
 .modal-content {
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 2.75rem 1.5rem 1.25rem;
 }
 
 .modal-detail {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 @media (min-width: 600px) {
   .modal-detail {
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+    grid-template-columns: 260px 1fr;
+    gap: 1.25rem;
   }
 }
 
@@ -183,7 +184,7 @@ onUnmounted(() => {
 
 .modal-image {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
   background-color: #eef2ea;
@@ -204,7 +205,7 @@ onUnmounted(() => {
 }
 
 .modal-title {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--color-text);
   line-height: 1.2;
@@ -212,13 +213,13 @@ onUnmounted(() => {
 }
 
 .modal-time {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--brand-navy);
 }
 
 .modal-desc {
-  font-size: 0.925rem;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: var(--color-text);
 }
 
@@ -236,14 +237,14 @@ onUnmounted(() => {
 }
 
 .modal-form-section {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--color-border);
 }
 
 .modal-form-heading {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
 }
 </style>

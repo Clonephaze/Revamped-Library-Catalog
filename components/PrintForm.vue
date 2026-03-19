@@ -37,6 +37,14 @@ async function submit() {
     errorMsg.value = 'Please enter your contact information.'
     return
   }
+
+  const cleaned = contact.value.trim()
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleaned)
+  const phoneOk = /[\d]{7,}/.test(cleaned.replace(/[\s\-().+]/g, ''))
+  if (!emailOk && !phoneOk) {
+    errorMsg.value = 'Please enter a valid email address or phone number.'
+    return
+  }
   if (!color.value) {
     errorMsg.value = 'Please select a filament color.'
     return
@@ -117,7 +125,7 @@ async function submit() {
 
       <!-- Loading skeleton -->
       <div v-if="filamentStatus === 'pending'" class="color-options-skeleton" aria-label="Loading colors">
-        <span v-for="n in 6" :key="n" class="color-pill-skeleton" />
+        <span v-for="n in 25" :key="n" class="color-pill-skeleton" />
       </div>
 
       <!-- Loaded -->
@@ -162,3 +170,9 @@ async function submit() {
     </button>
   </form>
 </template>
+
+<style scoped>
+.form {
+  gap: 0.75rem;
+}
+</style>

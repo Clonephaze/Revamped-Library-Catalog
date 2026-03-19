@@ -46,7 +46,7 @@
 }
 
 .app-footer {
-  background-color: var(--brand-navy);
+  background: linear-gradient(135deg, var(--brand-forest) 0%, var(--color-primary-light) 100%);
   border-top: 3px solid var(--color-accent);
   padding: 1rem;
   text-align: center;

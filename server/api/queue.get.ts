@@ -16,7 +16,7 @@ export default defineEventHandler(async () => {
         name: displayName,
         label: entry.label,
         color: entry.color,
-        printed: entry.printed,
+        status: entry.status,
       }
     })
   } catch (error) {

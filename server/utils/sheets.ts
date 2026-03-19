@@ -39,8 +39,7 @@ export interface QueueEntry {
   label: string
   color: string
   contact: string
-  printed: boolean
-  pickedUp: boolean
+  status: string
 }
 
 export interface PrintSubmission {
@@ -107,15 +106,14 @@ function rowToCatalogItem(row: string[]): CatalogItem {
   }
 }
 
-/** queue tab: A=Patron B=Label C=Color D=Patron Contact E=Printed F=Picked up */
+/** queue tab: A=Patron B=Label C=Color D=Patron Contact E=Status F=Request Date */
 function rowToQueueEntry(row: string[]): QueueEntry {
   return {
     patron: row[0] ?? '',
     label: row[1] ?? '',
     color: row[2] ?? '',
     contact: row[3] ?? '',
-    printed: (row[4] ?? '').toUpperCase() === 'TRUE',
-    pickedUp: (row[5] ?? '').toUpperCase() === 'TRUE',
+    status: row[4] ?? 'Waiting',
   }
 }
 
@@ -153,6 +151,53 @@ export async function getModelById(id: string): Promise<CatalogItem | null> {
 // Filaments
 // ---------------------------------------------------------------------------
 
+/** Fallback hex values for common filament color names. */
+const COLOR_NAME_HEX: Record<string, string> = {
+  red: '#e53e3e',
+  blue: '#3182ce',
+  green: '#38a169',
+  yellow: '#ecc94b',
+  orange: '#dd6b20',
+  purple: '#805ad5',
+  pink: '#ed64a6',
+  black: '#1a1a1a',
+  white: '#f7f7f7',
+  gray: '#a0aec0',
+  grey: '#a0aec0',
+  gold: '#d69e2e',
+  silver: '#cbd5e0',
+  brown: '#8b4513',
+  teal: '#319795',
+  navy: '#2a4365',
+  cyan: '#00b5d8',
+  magenta: '#d53f8c',
+  lime: '#84cc16',
+  beige: '#f5f0e1',
+  coral: '#ff7f50',
+  turquoise: '#40e0d0',
+  maroon: '#800000',
+  olive: '#6b8e23',
+  salmon: '#fa8072',
+  ivory: '#fffff0',
+  brass: '#b8942f',
+  copper: '#b87333',
+  'pale blue': '#add9f2',
+  titanium: '#888c91',
+  transparent: '#e5f2ff',
+  'white silk': '#f2ede6',
+}
+
+/** Try to match a color name to a known hex value (case-insensitive, partial match). */
+function guessHex(name: string): string {
+  const lower = name.toLowerCase().trim()
+  if (COLOR_NAME_HEX[lower]) return COLOR_NAME_HEX[lower]
+  // partial match: e.g. "Light Blue" contains "blue"
+  for (const [key, hex] of Object.entries(COLOR_NAME_HEX)) {
+    if (lower.includes(key)) return hex
+  }
+  return ''
+}
+
 /** Return all available filament colors, including hex swatch from cell background. */
 export async function getFilaments(): Promise<Filament[]> {
   const client = sheetsClient()
@@ -184,6 +229,9 @@ export async function getFilaments(): Promise<Filament[]> {
         }
       }
 
+      // Fallback: guess hex from the color name
+      if (!hex) hex = guessHex(colorName)
+
       return { color: colorName, hex }
     })
     .filter((f) => f.color)
@@ -196,8 +244,8 @@ export async function getFilaments(): Promise<Filament[]> {
 /**
  * Insert a new print request at the TOP of the queue (row 2, just below headers).
  * Uses insertDimension + update so the newest request is always first.
- * Writes FALSE for Printed/Picked up (renders as checkboxes if data-validation is set)
- * and the current date in the Request Date column (G).
+ * Writes "Waiting" for the Status dropdown
+ * and the current date in the Request Date column (F).
  */
 export async function submitPrint(data: PrintSubmission): Promise<void> {
   const client = sheetsClient()
@@ -239,7 +287,7 @@ export async function submitPrint(data: PrintSubmission): Promise<void> {
   // Now write data into the newly inserted row 2
   await client.spreadsheets.values.update({
     spreadsheetId,
-    range: 'queue!A2:G2',
+    range: 'queue!A2:F2',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [
@@ -248,8 +296,7 @@ export async function submitPrint(data: PrintSubmission): Promise<void> {
           data.label,
           data.color,
           data.contact,
-          'FALSE', // Printed — checkbox
-          'FALSE', // Picked up — checkbox
+          'Waiting',
           requestDate,
         ],
       ],
@@ -262,11 +309,11 @@ export async function getPendingPrints(): Promise<QueueEntry[]> {
   const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: 'queue!A2:G',
+    range: 'queue!A2:F',
   })
 
   const rows = (response.data.values ?? []) as string[][]
   return rows
     .map(rowToQueueEntry)
-    .filter((entry) => !entry.pickedUp && entry.patron)
+    .filter((entry) => entry.patron && entry.status !== 'Picked Up')
 }

@@ -583,12 +583,12 @@ a:hover {
 
 .btn--secondary {
   background-color: transparent;
-  color: var(--brand-navy);
-  border-color: var(--brand-navy);
+  color: var(--brand-forest);
+  border-color: var(--brand-forest);
 }
 
 .btn--secondary:hover:not(:disabled) {
-  background-color: var(--brand-navy);
+  background-color: var(--brand-forest);
   color: white;
 }
 
@@ -727,9 +727,18 @@ a:hover {
 .queue-display {
   text-align: center;
   padding: var(--space-2xl) var(--space-xl);
-  background: linear-gradient(135deg, var(--brand-navy), var(--color-primary-light));
+  background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-teal) 50%, var(--brand-lime) 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
   border-radius: var(--radius-lg);
   color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .queue-display__label {

@@ -57,8 +57,40 @@ const filteredItems = computed(() => {
 })
 function openModel(modelId: string) {
   const item = props.items.find((i) => i.modelId === modelId)
-  if (item) selectedItem.value = item
+  if (item) {
+    selectedItem.value = item
+    history.pushState({ modal: modelId }, '', `#${modelId}`)
+  }
 }
+
+function closeModal() {
+  selectedItem.value = null
+  // Only replace state if we're still on a modal hash
+  if (window.location.hash) {
+    history.replaceState(null, '', window.location.pathname + window.location.search)
+  }
+}
+
+function onPopState() {
+  // Back button pressed — close modal without pushing more history
+  if (selectedItem.value) {
+    selectedItem.value = null
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('popstate', onPopState)
+  // If page loads with a hash, try to open that model
+  const hash = window.location.hash.slice(1)
+  if (hash) {
+    const item = props.items.find((i) => i.modelId === hash)
+    if (item) selectedItem.value = item
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('popstate', onPopState)
+})
 </script>
 
 <template>
@@ -111,7 +143,7 @@ function openModel(modelId: string) {
     <ModelModal
       v-if="selectedItem"
       :model="selectedItem"
-      @close="selectedItem = null"
+      @close="closeModal"
     />
   </div>
 </template>

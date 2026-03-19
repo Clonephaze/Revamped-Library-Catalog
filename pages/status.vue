@@ -5,7 +5,7 @@ interface PendingPrint {
   name: string
   label: string
   color: string
-  printed: boolean
+  status: string
 }
 
 const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('/api/queue')
@@ -45,7 +45,7 @@ const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('
         v-for="(entry, i) in queue"
         :key="i"
         class="card queue-item"
-        :class="{ 'queue-item--ready': entry.printed }"
+        :class="{ 'queue-item--ready': entry.status === 'Ready' }"
         role="listitem"
       >
         <div class="queue-item__body">
@@ -55,9 +55,9 @@ const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('
         </div>
         <span
           class="badge"
-          :class="entry.printed ? 'badge--status-done' : 'badge--status-queued'"
+          :class="entry.status === 'Ready' ? 'badge--status-done' : 'badge--status-queued'"
         >
-          {{ entry.printed ? 'Ready for Pickup' : 'Waiting' }}
+          {{ entry.status === 'Ready' ? 'Ready for Pickup' : 'Waiting' }}
         </span>
       </div>
     </div>
