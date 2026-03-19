@@ -15,6 +15,7 @@ export default defineNuxtConfig({
       ],
       meta: [
         { name: 'theme-color', content: '#093547' },
+        { name: 'robots', content: 'noindex, nofollow' },
       ],
     },
     pageTransition: { name: 'page', mode: 'out-in' },
