@@ -1,5 +1,10 @@
 <script setup lang="ts">
-useHead({ title: '3D Print Catalog — Northeast Branch Library' })
+useHead({
+  title: '3D Print Catalog — Northeast Branch Library',
+  meta: [
+    { name: 'description', content: 'Browse and request free 3D prints from the Northeast Branch Library. Choose from dozens of models and pick up your print at the service desk.' },
+  ],
+})
 
 interface CatalogItem {
   modelId: string
@@ -13,7 +18,7 @@ interface CatalogItem {
   tags: string[]
 }
 
-const { data: catalog, status, error } = await useFetch<CatalogItem[]>('/api/catalog')
+const { data: catalog, status, error } = useLazyFetch<CatalogItem[]>('/api/catalog')
 </script>
 
 <template>
@@ -23,9 +28,16 @@ const { data: catalog, status, error } = await useFetch<CatalogItem[]>('/api/cat
       Browse our models and tap one to request a print. Staff will contact you when it's ready.
     </p>
 
-    <!-- Loading -->
-    <div v-if="status === 'pending'" class="page-loading" aria-live="polite" aria-label="Loading catalog">
-      <div class="spinner spinner--dark" />
+    <!-- Loading skeleton -->
+    <div v-if="status === 'pending'" class="catalog-grid" aria-live="polite" aria-label="Loading catalog">
+      <div v-for="n in 8" :key="n" class="card skeleton-card">
+        <div class="skeleton-card__image shimmer" />
+        <div class="skeleton-card__body">
+          <div class="shimmer" style="height: 1rem; width: 70%; border-radius: 4px" />
+          <div class="shimmer" style="height: 0.75rem; width: 50%; border-radius: 4px" />
+          <div class="shimmer" style="height: 1.5rem; width: 40%; border-radius: 100px" />
+        </div>
+      </div>
     </div>
 
     <!-- Error -->

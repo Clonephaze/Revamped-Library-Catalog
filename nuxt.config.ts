@@ -8,6 +8,18 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/KernCountyLogo.svg' },
+      ],
+      meta: [
+        { name: 'theme-color', content: '#093547' },
+      ],
+    },
+    pageTransition: { name: 'page', mode: 'out-in' },
+  },
+
   // Runtime config — server-side keys are NOT exposed to the client.
   // Map to env vars:
   //   GOOGLE_SERVICE_ACCOUNT_EMAIL

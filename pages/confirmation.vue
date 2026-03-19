@@ -1,5 +1,10 @@
 <script setup lang="ts">
-useHead({ title: 'Print Request Submitted — Northeast Branch Library' })
+useHead({
+  title: 'Print Request Submitted — Northeast Branch Library',
+  meta: [
+    { name: 'description', content: 'Your 3D print request has been submitted. We\'ll contact you when it\'s ready for pickup at the Northeast Branch Library.' },
+  ],
+})
 
 const route = useRoute()
 

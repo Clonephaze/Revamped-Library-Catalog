@@ -1,5 +1,10 @@
 <script setup lang="ts">
-useHead({ title: 'Print Queue — Northeast Branch Library' })
+useHead({
+  title: 'Print Queue — Northeast Branch Library',
+  meta: [
+    { name: 'description', content: 'Check the status of your 3D print request at the Northeast Branch Library. See which prints are waiting and which are ready for pickup.' },
+  ],
+})
 
 interface PendingPrint {
   name: string
@@ -8,7 +13,7 @@ interface PendingPrint {
   status: string
 }
 
-const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('/api/queue')
+const { data: queue, status, error, refresh } = useLazyFetch<PendingPrint[]>('/api/queue')
 </script>
 
 <template>
@@ -29,44 +34,54 @@ const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('
       {{ status === 'pending' ? 'Refreshing…' : '↻ Refresh' }}
     </button>
 
-    <!-- Loading -->
-    <div v-if="status === 'pending' && !queue" class="page-loading" aria-label="Loading queue">
-      <div class="spinner spinner--dark" />
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="alert alert--error" role="alert">
-      Unable to load the queue right now. Please try again or ask a staff member.
-    </div>
-
-    <!-- Queue list -->
-    <div v-else-if="queue && queue.length > 0" class="queue-list" role="list">
-      <div
-        v-for="(entry, i) in queue"
-        :key="i"
-        class="card queue-item"
-        :class="{ 'queue-item--ready': entry.status === 'Ready' }"
-        role="listitem"
-      >
-        <div class="queue-item__body">
-          <p class="queue-item__name">{{ entry.name }}</p>
-          <p class="queue-item__model">{{ entry.label }}</p>
-          <p class="queue-item__color">{{ entry.color }}</p>
+    <!-- Queue well -->
+    <div class="queue-well">
+      <!-- Loading skeleton -->
+      <div v-if="status === 'pending' && !queue" class="queue-list" aria-live="polite" aria-label="Loading queue">
+        <div v-for="n in 4" :key="n" class="card queue-item">
+          <div class="queue-item__body">
+            <div class="shimmer" style="height: 0.95rem; width: 6rem; border-radius: 4px" />
+            <div class="shimmer" style="height: 0.85rem; width: 9rem; border-radius: 4px" />
+            <div class="shimmer" style="height: 0.8rem; width: 4rem; border-radius: 4px" />
+          </div>
+          <div class="shimmer" style="height: 1.5rem; width: 5rem; border-radius: 100px" />
         </div>
-        <span
-          class="badge"
-          :class="entry.status === 'Ready' ? 'badge--status-done' : 'badge--status-queued'"
-        >
-          {{ entry.status === 'Ready' ? 'Ready for Pickup' : 'Waiting' }}
-        </span>
       </div>
-    </div>
 
-    <!-- Empty -->
-    <div v-else class="empty-state">
-      <span class="empty-state__icon" aria-hidden="true">🎉</span>
-      <p class="empty-state__title">No pending prints</p>
-      <p>All requests have been completed! Browse the catalog to submit a new one.</p>
+      <!-- Error -->
+      <div v-else-if="error" class="alert alert--error" role="alert">
+        Unable to load the queue right now. Please try again or ask a staff member.
+      </div>
+
+      <!-- Queue list -->
+      <div v-else-if="queue && queue.length > 0" class="queue-list" role="list">
+        <div
+          v-for="(entry, i) in queue"
+          :key="i"
+          class="card queue-item"
+          :class="{ 'queue-item--ready': entry.status === 'Ready' }"
+          role="listitem"
+        >
+          <div class="queue-item__body">
+            <p class="queue-item__name">{{ entry.name }}</p>
+            <p class="queue-item__model">{{ entry.label }}</p>
+            <p class="queue-item__color">{{ entry.color }}</p>
+          </div>
+          <span
+            class="badge"
+            :class="entry.status === 'Ready' ? 'badge--status-done' : 'badge--status-queued'"
+          >
+            {{ entry.status === 'Ready' ? 'Ready for Pickup' : 'Waiting' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else class="empty-state">
+        <span class="empty-state__icon" aria-hidden="true">🎉</span>
+        <p class="empty-state__title">No pending prints</p>
+        <p>All requests have been completed! Browse the catalog to submit a new one.</p>
+      </div>
     </div>
 
     <!-- Nav -->
@@ -77,6 +92,16 @@ const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('
 </template>
 
 <style scoped>
+.queue-well {
+  background: #e8ece4;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  padding: var(--space-md);
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .queue-list {
   display: flex;
   flex-direction: column;

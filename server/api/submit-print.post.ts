@@ -54,10 +54,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const sanitized = {
-    patron: String(patron).trim().slice(0, LIMITS.patron),
-    label: String(label).trim().slice(0, LIMITS.label),
-    color: String(color).trim().slice(0, LIMITS.color),
-    contact: String(contact).trim().slice(0, LIMITS.contact),
+    patron: String(patron).replace(/[<>]/g, '').trim().slice(0, LIMITS.patron),
+    label: String(label).replace(/[<>]/g, '').trim().slice(0, LIMITS.label),
+    color: String(color).replace(/[<>]/g, '').trim().slice(0, LIMITS.color),
+    contact: String(contact).replace(/[<>]/g, '').trim().slice(0, LIMITS.contact),
   }
 
   if (!isValidContact(sanitized.contact)) {
