@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useHead({ title: '3D Print Catalog — Library' })
+useHead({ title: '3D Print Catalog — Northeast Branch Library' })
 
 interface CatalogItem {
   modelId: string
@@ -7,7 +7,9 @@ interface CatalogItem {
   category: string
   imageUrl: string
   printTimeMinutes: number
+  description: string
   author: string
+  sourceUrl: string
 }
 
 const { data: catalog, status, error } = await useFetch<CatalogItem[]>('/api/catalog')

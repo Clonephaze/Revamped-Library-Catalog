@@ -30,8 +30,8 @@ export interface CatalogItem {
 }
 
 export interface Filament {
-  brand: string
   color: string
+  hex: string
 }
 
 export interface QueueEntry {
@@ -119,11 +119,11 @@ function rowToQueueEntry(row: string[]): QueueEntry {
   }
 }
 
-/** filaments tab: A=Brand B=Color */
+/** filaments tab: A=Color/Name (background color holds the swatch) */
 function rowToFilament(row: string[]): Filament {
   return {
-    brand: row[0] ?? '',
-    color: row[1] ?? '',
+    color: row[0] ?? '',
+    hex: '',
   }
 }
 
@@ -153,28 +153,93 @@ export async function getModelById(id: string): Promise<CatalogItem | null> {
 // Filaments
 // ---------------------------------------------------------------------------
 
-/** Return all available filament colors from the filaments sheet. */
+/** Return all available filament colors, including hex swatch from cell background. */
 export async function getFilaments(): Promise<Filament[]> {
   const client = sheetsClient()
-  const response = await client.spreadsheets.values.get({
-    spreadsheetId: getSpreadsheetId(),
-    range: 'filaments!A2:B',
+  const spreadsheetId = getSpreadsheetId()
+
+  // Use spreadsheets.get to read both values AND cell background colors
+  const response = await client.spreadsheets.get({
+    spreadsheetId,
+    ranges: ['filaments!A2:A'],
+    fields: 'sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)',
   })
 
-  const rows = (response.data.values ?? []) as string[][]
-  return rows.map(rowToFilament).filter((f) => f.color)
+  const rowData = response.data.sheets?.[0]?.data?.[0]?.rowData ?? []
+
+  return rowData
+    .map((row) => {
+      const cell = row.values?.[0]
+      const colorName = cell?.formattedValue ?? ''
+      const bg = cell?.effectiveFormat?.backgroundColor
+
+      let hex = ''
+      if (bg) {
+        const r = Math.round((bg.red ?? 0) * 255)
+        const g = Math.round((bg.green ?? 0) * 255)
+        const b = Math.round((bg.blue ?? 0) * 255)
+        // Skip white/near-white backgrounds (default sheet bg)
+        if (r < 245 || g < 245 || b < 245) {
+          hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+        }
+      }
+
+      return { color: colorName, hex }
+    })
+    .filter((f) => f.color)
 }
 
 // ---------------------------------------------------------------------------
 // Queue
 // ---------------------------------------------------------------------------
 
-/** Append a new print request row to the queue sheet. */
+/**
+ * Insert a new print request at the TOP of the queue (row 2, just below headers).
+ * Uses insertDimension + update so the newest request is always first.
+ * Writes FALSE for Printed/Picked up (renders as checkboxes if data-validation is set)
+ * and the current date in the Request Date column (G).
+ */
 export async function submitPrint(data: PrintSubmission): Promise<void> {
   const client = sheetsClient()
-  await client.spreadsheets.values.append({
-    spreadsheetId: getSpreadsheetId(),
-    range: 'queue!A:F',
+  const spreadsheetId = getSpreadsheetId()
+
+  // We need the queue sheet's numeric sheetId for insertDimension.
+  const meta = await client.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets.properties',
+  })
+  const queueSheet = meta.data.sheets?.find(
+    (s) => s.properties?.title === 'queue',
+  )
+  const sheetId = queueSheet?.properties?.sheetId ?? 0
+
+  const now = new Date()
+  const requestDate = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`
+
+  await client.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          // Insert a blank row at index 1 (row 2, right below headers)
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: 1,
+              endIndex: 2,
+            },
+            inheritFromBefore: false,
+          },
+        },
+      ],
+    },
+  })
+
+  // Now write data into the newly inserted row 2
+  await client.spreadsheets.values.update({
+    spreadsheetId,
+    range: 'queue!A2:G2',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [
@@ -183,8 +248,9 @@ export async function submitPrint(data: PrintSubmission): Promise<void> {
           data.label,
           data.color,
           data.contact,
-          false, // Printed — unchecked
-          false, // Picked up — unchecked
+          'FALSE', // Printed — checkbox
+          'FALSE', // Picked up — checkbox
+          requestDate,
         ],
       ],
     },
@@ -196,7 +262,7 @@ export async function getPendingPrints(): Promise<QueueEntry[]> {
   const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: 'queue!A2:F',
+    range: 'queue!A2:G',
   })
 
   const rows = (response.data.values ?? []) as string[][]

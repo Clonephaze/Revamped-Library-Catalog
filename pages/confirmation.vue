@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useHead({ title: 'Print Request Submitted — Library 3D Prints' })
+useHead({ title: 'Print Request Submitted — Northeast Branch Library' })
 
 const route = useRoute()
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useHead({ title: 'Print Queue — Library 3D Prints' })
+useHead({ title: 'Print Queue — Northeast Branch Library' })
 
 interface PendingPrint {
   name: string

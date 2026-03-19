@@ -1,7 +1,7 @@
 <script setup lang="ts">
 interface Filament {
-  brand: string
   color: string
+  hex: string
 }
 
 const props = defineProps<{
@@ -9,11 +9,7 @@ const props = defineProps<{
   modelName: string
 }>()
 
-const { data: filaments } = await useFetch<Filament[]>('/api/filaments')
-
-const colorOptions = computed(() =>
-  (filaments.value ?? []).map((f) => f.color),
-)
+const { data: filaments, status: filamentStatus } = useLazyFetch<Filament[]>('/api/filaments')
 
 const patronName = ref('')
 const contact = ref('')
@@ -24,9 +20,9 @@ const errorMsg = ref<string | null>(null)
 const router = useRouter()
 
 // Pre-select the first color once filaments load
-watch(colorOptions, (opts) => {
-  if (!color.value && opts.length > 0) {
-    color.value = opts[0]
+watch(filaments, (list) => {
+  if (!color.value && list && list.length > 0) {
+    color.value = list[0].color
   }
 }, { immediate: true })
 
@@ -114,23 +110,36 @@ async function submit() {
     </div>
 
     <!-- Color selection -->
-    <div v-if="colorOptions.length > 0" class="form-group">
+    <div class="form-group">
       <p class="form-label" id="color-group-label">
         Filament Color <span class="required" aria-hidden="true">*</span>
       </p>
-      <div class="color-options" role="radiogroup" aria-labelledby="color-group-label">
-        <template v-for="option in colorOptions" :key="option">
+
+      <!-- Loading skeleton -->
+      <div v-if="filamentStatus === 'pending'" class="color-options-skeleton" aria-label="Loading colors">
+        <span v-for="n in 6" :key="n" class="color-pill-skeleton" />
+      </div>
+
+      <!-- Loaded -->
+      <div v-else-if="filaments && filaments.length > 0" class="color-options" role="radiogroup" aria-labelledby="color-group-label">
+        <template v-for="f in filaments" :key="f.color">
           <input
-            :id="`pf-color-${option}`"
+            :id="`pf-color-${f.color}`"
             v-model="color"
             type="radio"
-            :value="option"
+            :value="f.color"
             class="color-radio"
             name="pf-color"
             :disabled="submitting"
           />
-          <label :for="`pf-color-${option}`" class="color-radio-label">
-            {{ option }}
+          <label :for="`pf-color-${f.color}`" class="color-radio-label">
+            <span
+              v-if="f.hex"
+              class="color-swatch"
+              :style="{ backgroundColor: f.hex }"
+              aria-hidden="true"
+            />
+            {{ f.color }}
           </label>
         </template>
       </div>

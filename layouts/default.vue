@@ -3,8 +3,8 @@
     <header class="app-header">
       <div class="container">
         <NuxtLink to="/" class="header-brand">
-          <span aria-hidden="true">🖨️</span>
-          <span>Library 3D Prints</span>
+          <img src="/KernCountyLogo.svg" alt="Kern County Library" class="header-logo" />
+          <span>Northeast Branch Library</span>
         </NuxtLink>
         <nav class="header-nav" aria-label="Site navigation">
           <NuxtLink to="/">Catalog</NuxtLink>
@@ -26,6 +26,14 @@
 </template>
 
 <style scoped>
+.header-logo {
+  height: 4rem;
+  width: auto;
+  filter: brightness(0) invert(1);
+  margin-left: -8rem;
+  margin-right: 1.5rem;
+}
+
 .app-wrapper {
   display: flex;
   flex-direction: column;
@@ -38,11 +46,11 @@
 }
 
 .app-footer {
-  background-color: #f3f2ef;
-  border-top: 1px solid var(--color-border);
+  background-color: var(--brand-navy);
+  border-top: 3px solid var(--color-accent);
   padding: 1rem;
   text-align: center;
   font-size: 0.875rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.7);
 }
 </style>
