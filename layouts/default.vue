@@ -8,7 +8,7 @@
         </NuxtLink>
         <nav class="header-nav" aria-label="Site navigation">
           <NuxtLink to="/">Catalog</NuxtLink>
-          <NuxtLink to="/status">My Status</NuxtLink>
+          <NuxtLink to="/status">Queue</NuxtLink>
         </nav>
       </div>
     </header>

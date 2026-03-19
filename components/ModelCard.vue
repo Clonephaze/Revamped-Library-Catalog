@@ -4,7 +4,8 @@ defineProps<{
   name: string
   category: string
   imageUrl: string
-  printTime: string
+  printTimeMinutes: number
+  author: string
 }>()
 </script>
 
@@ -16,6 +17,7 @@ defineProps<{
       :alt="name"
       class="model-card__image"
       loading="lazy"
+      referrerpolicy="no-referrer"
     />
     <div v-else class="model-card__placeholder" aria-hidden="true">🖨️</div>
 
@@ -23,8 +25,17 @@ defineProps<{
       <p class="model-card__name">{{ name }}</p>
       <div class="model-card__meta">
         <span class="badge badge--category">{{ category }}</span>
-        <span class="badge badge--time">⏱ {{ printTime }}</span>
+        <span class="badge badge--time">⏱ {{ printTimeMinutes }} min</span>
       </div>
+      <p v-if="author" class="model-card__author">by {{ author }}</p>
     </div>
   </NuxtLink>
 </template>
+
+<style scoped>
+.model-card__author {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+</style>

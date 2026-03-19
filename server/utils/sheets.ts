@@ -6,9 +6,10 @@
  *   GOOGLE_SERVICE_ACCOUNT_KEY   — full PEM string, \n as literal backslash-n
  *   GOOGLE_SPREADSHEET_ID
  *
- * Sheet layout:
- *   Catalog    — row 1 is header, data starts at A2
- *   PrintQueue — row 1 is header, data starts at A2
+ * Sheet tabs (single spreadsheet):
+ *   catalog   — model catalog managed by staff
+ *   queue     — print request queue (Sheet1)
+ *   filaments — available filament colors (Sheet2)
  */
 
 import { google } from 'googleapis'
@@ -21,31 +22,32 @@ export interface CatalogItem {
   modelId: string
   name: string
   category: string
+  printTimeMinutes: number
+  description: string
   imageUrl: string
-  printTime: string
-  colorOptions: string[]
-  active: boolean
+  author: string
+  sourceUrl: string
 }
 
-export interface PrintRequest {
-  name: string
-  contact: string
-  modelId: string
-  modelName: string
+export interface Filament {
+  brand: string
   color: string
 }
 
 export interface QueueEntry {
-  id: string
-  timestamp: string
-  queueNumber: string
-  name: string
-  contact: string
-  modelId: string
-  modelName: string
+  patron: string
+  label: string
   color: string
-  status: string
-  notes: string
+  contact: string
+  printed: boolean
+  pickedUp: boolean
+}
+
+export interface PrintSubmission {
+  patron: string
+  label: string
+  color: string
+  contact: string
 }
 
 // ---------------------------------------------------------------------------
@@ -60,7 +62,6 @@ function getSpreadsheetId(): string {
 
 function createAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  // Env vars store \n as a literal two-character sequence; convert to real newlines.
   const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, '\n')
 
   if (!email || !key) {
@@ -76,7 +77,7 @@ function createAuth() {
   })
 }
 
-function sheets() {
+function sheetsClient() {
   return google.sheets({ version: 'v4', auth: createAuth() })
 }
 
@@ -84,121 +85,122 @@ function sheets() {
 // Row mappers
 // ---------------------------------------------------------------------------
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** catalog tab: A=Category B=Name C=Description D=Print Time Minutes E=Author F=Source G=Picture URL */
 function rowToCatalogItem(row: string[]): CatalogItem {
+  const name = row[1] ?? ''
   return {
-    modelId: row[0] ?? '',
-    name: row[1] ?? '',
-    category: row[2] ?? '',
-    imageUrl: row[3] ?? '',
-    printTime: row[4] ?? '',
-    colorOptions: (row[5] ?? '')
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean),
-    active: (row[6] ?? '').toLowerCase() === 'true',
+    modelId: slugify(name),
+    name,
+    category: row[0] ?? '',
+    description: row[2] ?? '',
+    printTimeMinutes: parseInt(row[3] ?? '0', 10) || 0,
+    author: row[4] ?? '',
+    sourceUrl: row[5] ?? '',
+    imageUrl: row[6] ?? '',
   }
 }
 
+/** queue tab: A=Patron B=Label C=Color D=Patron Contact E=Printed F=Picked up */
 function rowToQueueEntry(row: string[]): QueueEntry {
   return {
-    id: row[0] ?? '',
-    timestamp: row[1] ?? '',
-    queueNumber: row[2] ?? '',
-    name: row[3] ?? '',
-    contact: row[4] ?? '',
-    modelId: row[5] ?? '',
-    modelName: row[6] ?? '',
-    color: row[7] ?? '',
-    status: row[8] ?? '',
-    notes: row[9] ?? '',
+    patron: row[0] ?? '',
+    label: row[1] ?? '',
+    color: row[2] ?? '',
+    contact: row[3] ?? '',
+    printed: (row[4] ?? '').toUpperCase() === 'TRUE',
+    pickedUp: (row[5] ?? '').toUpperCase() === 'TRUE',
+  }
+}
+
+/** filaments tab: A=Brand B=Color */
+function rowToFilament(row: string[]): Filament {
+  return {
+    brand: row[0] ?? '',
+    color: row[1] ?? '',
   }
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Catalog
 // ---------------------------------------------------------------------------
 
-/** Return all active models from the Catalog sheet. */
+/** Return all active models from the catalog sheet. */
 export async function getCatalog(): Promise<CatalogItem[]> {
-  const client = sheets()
+  const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: 'Catalog!A2:G',
+    range: 'catalog!A2:G',
   })
 
   const rows = (response.data.values ?? []) as string[][]
-  return rows.map(rowToCatalogItem).filter((item) => item.active)
+  return rows.map(rowToCatalogItem).filter((item) => item.name)
 }
 
-/** Return a single model by its ModelID, or null if not found. */
+/** Return a single model by its ModelID, or null if not found / inactive. */
 export async function getModelById(id: string): Promise<CatalogItem | null> {
   const catalog = await getCatalog()
   return catalog.find((item) => item.modelId === id) ?? null
 }
 
-/**
- * Append a new print request row to PrintQueue and return the queue number.
- *
- * Queue numbers are padded 4-digit integers (e.g. "0042").
- * We read the current max and increment — acceptable for a low-concurrency
- * library environment. Each row also gets a unique timestamp-based ID so
- * the sheet stays consistent even in the unlikely event of a collision.
- */
-export async function createPrintRequest(data: PrintRequest): Promise<string> {
-  const client = sheets()
-  const spreadsheetId = getSpreadsheetId()
+// ---------------------------------------------------------------------------
+// Filaments
+// ---------------------------------------------------------------------------
 
-  // Read existing queue numbers to find the current maximum.
-  const queueResponse = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: 'PrintQueue!C2:C',
+/** Return all available filament colors from the filaments sheet. */
+export async function getFilaments(): Promise<Filament[]> {
+  const client = sheetsClient()
+  const response = await client.spreadsheets.values.get({
+    spreadsheetId: getSpreadsheetId(),
+    range: 'filaments!A2:B',
   })
 
-  const existingRows = (queueResponse.data.values ?? []) as string[][]
-  const numbers = existingRows
-    .map((r) => parseInt(r[0] ?? '0', 10))
-    .filter((n) => !isNaN(n))
+  const rows = (response.data.values ?? []) as string[][]
+  return rows.map(rowToFilament).filter((f) => f.color)
+}
 
-  const nextNumber = (numbers.length > 0 ? Math.max(...numbers) : 0) + 1
-  const queueNumber = String(nextNumber).padStart(4, '0')
+// ---------------------------------------------------------------------------
+// Queue
+// ---------------------------------------------------------------------------
 
-  const id = `PQ-${Date.now()}`
-  const timestamp = new Date().toISOString()
-
+/** Append a new print request row to the queue sheet. */
+export async function submitPrint(data: PrintSubmission): Promise<void> {
+  const client = sheetsClient()
   await client.spreadsheets.values.append({
-    spreadsheetId,
-    range: 'PrintQueue!A:J',
+    spreadsheetId: getSpreadsheetId(),
+    range: 'queue!A:F',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [
         [
-          id,
-          timestamp,
-          queueNumber,
-          data.name,
-          data.contact,
-          data.modelId,
-          data.modelName,
+          data.patron,
+          data.label,
           data.color,
-          'Queued',
-          '', // Notes — empty on creation
+          data.contact,
+          false, // Printed — unchecked
+          false, // Picked up — unchecked
         ],
       ],
     },
   })
-
-  return queueNumber
 }
 
-/** Look up a print request by queue number. Returns null if not found. */
-export async function getStatus(queueNumber: string): Promise<QueueEntry | null> {
-  const client = sheets()
+/** Return all queue entries that have NOT been picked up yet. */
+export async function getPendingPrints(): Promise<QueueEntry[]> {
+  const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: 'PrintQueue!A2:J',
+    range: 'queue!A2:F',
   })
 
   const rows = (response.data.values ?? []) as string[][]
-  const row = rows.find((r) => r[2] === queueNumber)
-  return row ? rowToQueueEntry(row) : null
+  return rows
+    .map(rowToQueueEntry)
+    .filter((entry) => !entry.pickedUp && entry.patron)
 }

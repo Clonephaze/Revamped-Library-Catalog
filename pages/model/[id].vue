@@ -4,8 +4,10 @@ interface CatalogItem {
   name: string
   category: string
   imageUrl: string
-  printTime: string
-  colorOptions: string[]
+  printTimeMinutes: number
+  description: string
+  author: string
+  sourceUrl: string
 }
 
 const route = useRoute()
@@ -48,6 +50,7 @@ const showForm = ref(false)
             :src="model.imageUrl"
             :alt="model.name"
             class="model-detail__image"
+            referrerpolicy="no-referrer"
           />
           <div v-else class="model-detail__placeholder" aria-hidden="true">🖨️</div>
         </div>
@@ -60,26 +63,23 @@ const showForm = ref(false)
 
           <h1 class="page-title" style="margin-bottom: 0.75rem">{{ model.name }}</h1>
 
-          <p class="badge badge--time" style="display: inline-flex; margin-bottom: 1.5rem">
-            ⏱ Est. print time: {{ model.printTime }}
+          <p class="badge badge--time" style="display: inline-flex; margin-bottom: 1rem">
+            ⏱ Est. print time: {{ model.printTimeMinutes }} min
           </p>
 
-          <!-- Available colors preview -->
-          <div v-if="model.colorOptions.length > 0" style="margin-bottom: 1.5rem">
-            <p style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem">
-              Available Colors
-            </p>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem">
-              <span
-                v-for="c in model.colorOptions"
-                :key="c"
-                class="badge"
-                style="background: #f3f4f6; color: #374151"
-              >
-                {{ c }}
-              </span>
-            </div>
-          </div>
+          <p v-if="model.description" style="margin-bottom: 1rem; line-height: 1.6; color: var(--color-text)">
+            {{ model.description }}
+          </p>
+
+          <p v-if="model.author" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--color-text-muted)">
+            Designed by <strong>{{ model.author }}</strong>
+          </p>
+
+          <p v-if="model.sourceUrl" style="margin-bottom: 1.5rem">
+            <a :href="model.sourceUrl" target="_blank" rel="noopener noreferrer" style="font-size: 0.9rem;">
+              View original model ↗
+            </a>
+          </p>
 
           <!-- Print CTA -->
           <button
@@ -111,7 +111,6 @@ const showForm = ref(false)
         <PrintForm
           :model-id="model.modelId"
           :model-name="model.name"
-          :color-options="model.colorOptions"
         />
       </div>
     </template>

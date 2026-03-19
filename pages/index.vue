@@ -6,8 +6,8 @@ interface CatalogItem {
   name: string
   category: string
   imageUrl: string
-  printTime: string
-  colorOptions: string[]
+  printTimeMinutes: number
+  author: string
 }
 
 const { data: catalog, status, error } = await useFetch<CatalogItem[]>('/api/catalog')

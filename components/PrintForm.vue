@@ -1,22 +1,39 @@
 <script setup lang="ts">
+interface Filament {
+  brand: string
+  color: string
+}
+
 const props = defineProps<{
   modelId: string
   modelName: string
-  colorOptions: string[]
 }>()
 
-const name = ref('')
+const { data: filaments } = await useFetch<Filament[]>('/api/filaments')
+
+const colorOptions = computed(() =>
+  (filaments.value ?? []).map((f) => f.color),
+)
+
+const patronName = ref('')
 const contact = ref('')
-const color = ref(props.colorOptions[0] ?? '')
+const color = ref('')
 const submitting = ref(false)
 const errorMsg = ref<string | null>(null)
 
 const router = useRouter()
 
+// Pre-select the first color once filaments load
+watch(colorOptions, (opts) => {
+  if (!color.value && opts.length > 0) {
+    color.value = opts[0]
+  }
+}, { immediate: true })
+
 async function submit() {
   errorMsg.value = null
 
-  if (!name.value.trim()) {
+  if (!patronName.value.trim()) {
     errorMsg.value = 'Please enter your name.'
     return
   }
@@ -32,16 +49,12 @@ async function submit() {
   submitting.value = true
 
   try {
-    const result = await $fetch<{
-      queueNumber: string
-      details: { name: string; modelName: string; color: string }
-    }>('/api/submit-print', {
+    await $fetch('/api/submit-print', {
       method: 'POST',
       body: {
-        name: name.value.trim(),
+        patron: patronName.value.trim(),
         contact: contact.value.trim(),
-        modelId: props.modelId,
-        modelName: props.modelName,
+        label: props.modelName,
         color: color.value,
       },
     })
@@ -49,8 +62,7 @@ async function submit() {
     await router.push({
       path: '/confirmation',
       query: {
-        queue: result.queueNumber,
-        name: name.value.trim(),
+        name: patronName.value.trim(),
         model: props.modelName,
         color: color.value,
       },
@@ -73,7 +85,7 @@ async function submit() {
       </label>
       <input
         id="pf-name"
-        v-model="name"
+        v-model="patronName"
         type="text"
         class="form-input"
         placeholder="Jane Smith"

@@ -1,21 +1,18 @@
-import { createPrintRequest } from '../utils/sheets'
+import { submitPrint } from '../utils/sheets'
 
-// Maximum field lengths to prevent oversized payloads
 const LIMITS = {
-  name: 100,
+  patron: 100,
   contact: 200,
-  modelId: 50,
-  modelName: 200,
+  label: 200,
   color: 50,
 } as const
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
 
-  // ---- Validate presence ----
-  const { name, contact, modelId, modelName, color } = body ?? {}
+  const { patron, label, color, contact } = body ?? {}
 
-  const missing = (['name', 'contact', 'modelId', 'modelName', 'color'] as const).filter(
+  const missing = (['patron', 'label', 'color', 'contact'] as const).filter(
     (field) => !body?.[field]?.toString().trim(),
   )
 
@@ -26,25 +23,21 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // ---- Sanitize (trim + enforce max length) ----
   const sanitized = {
-    name: String(name).trim().slice(0, LIMITS.name),
-    contact: String(contact).trim().slice(0, LIMITS.contact),
-    modelId: String(modelId).trim().slice(0, LIMITS.modelId),
-    modelName: String(modelName).trim().slice(0, LIMITS.modelName),
+    patron: String(patron).trim().slice(0, LIMITS.patron),
+    label: String(label).trim().slice(0, LIMITS.label),
     color: String(color).trim().slice(0, LIMITS.color),
+    contact: String(contact).trim().slice(0, LIMITS.contact),
   }
 
   try {
-    const queueNumber = await createPrintRequest(sanitized)
+    await submitPrint(sanitized)
 
     return {
       success: true,
-      queueNumber,
-      submittedAt: new Date().toISOString(),
       details: {
-        name: sanitized.name,
-        modelName: sanitized.modelName,
+        patron: sanitized.patron,
+        label: sanitized.label,
         color: sanitized.color,
       },
     }

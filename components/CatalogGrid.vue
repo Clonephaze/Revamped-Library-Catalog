@@ -4,8 +4,8 @@ interface CatalogItem {
   name: string
   category: string
   imageUrl: string
-  printTime: string
-  colorOptions: string[]
+  printTimeMinutes: number
+  author: string
 }
 
 const props = defineProps<{
@@ -20,15 +20,16 @@ const categories = computed(() => {
 })
 
 const filteredItems = computed(() =>
-  selectedCategory.value === 'All'
-    ? props.items
-    : props.items.filter((i) => i.category === selectedCategory.value),
+  props.items.filter((i) => {
+    if (selectedCategory.value !== 'All' && i.category !== selectedCategory.value) return false
+    return true
+  }),
 )
 </script>
 
 <template>
   <div>
-    <!-- Category filter pills — only shown when there are multiple categories -->
+    <!-- Category filter pills -->
     <div v-if="categories.length > 2" class="catalog-filters" role="group" aria-label="Filter by category">
       <button
         v-for="cat in categories"

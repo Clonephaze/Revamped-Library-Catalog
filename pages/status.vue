@@ -1,152 +1,121 @@
 <script setup lang="ts">
-useHead({ title: 'Check Print Status — Library 3D Prints' })
+useHead({ title: 'Print Queue — Library 3D Prints' })
 
-interface QueueEntry {
-  id: string
-  timestamp: string
-  queueNumber: string
+interface PendingPrint {
   name: string
-  contact: string
-  modelId: string
-  modelName: string
+  label: string
   color: string
-  status: string
-  notes: string
+  printed: boolean
 }
 
-const route = useRoute()
-
-// Pre-fill if ?q=XXXX is supplied (e.g. from the confirmation page link)
-const queueInput = ref((route.query.q as string) ?? '')
-const result = ref<QueueEntry | null>(null)
-const loading = ref(false)
-const errorMsg = ref<string | null>(null)
-
-// Auto-lookup when arriving from confirmation page with a queue number pre-filled
-onMounted(async () => {
-  if (queueInput.value.trim()) {
-    await lookup()
-  }
-})
-
-async function lookup() {
-  const q = queueInput.value.trim()
-  if (!q) {
-    errorMsg.value = 'Please enter your queue number.'
-    return
-  }
-
-  loading.value = true
-  errorMsg.value = null
-  result.value = null
-
-  try {
-    result.value = await $fetch<QueueEntry>(`/api/status/${encodeURIComponent(q)}`)
-  } catch (err: unknown) {
-    const h3 = err as { statusCode?: number; data?: { statusMessage?: string } }
-
-    if (h3?.statusCode === 404) {
-      errorMsg.value = `Queue number "${q}" was not found. Please check and try again.`
-    } else {
-      errorMsg.value = h3?.data?.statusMessage ?? 'Unable to look up status. Please try again.'
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-function statusClass(s: string) {
-  const map: Record<string, string> = {
-    Queued: 'badge--status-queued',
-    Printing: 'badge--status-printing',
-    Done: 'badge--status-done',
-    Failed: 'badge--status-failed',
-  }
-  return map[s] ?? 'badge--status-queued'
-}
-
-function formatDate(iso: string) {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
+const { data: queue, status, error, refresh } = await useFetch<PendingPrint[]>('/api/queue')
 </script>
 
 <template>
-  <div class="container" style="max-width: 600px">
-    <h1 class="page-title">Check Print Status</h1>
-    <p class="page-subtitle">Enter the queue number from your confirmation to see the current status.</p>
+  <div class="container" style="max-width: 700px">
+    <h1 class="page-title">Print Queue</h1>
+    <p class="page-subtitle">
+      See where your request is in the queue. Staff update this as prints are completed.
+    </p>
 
-    <!-- Lookup form -->
-    <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem">
-      <form class="form" @submit.prevent="lookup">
-        <div class="form-group">
-          <label class="form-label" for="queue-input">Queue Number</label>
-          <input
-            id="queue-input"
-            v-model="queueInput"
-            type="text"
-            class="form-input"
-            placeholder="e.g. 0042"
-            inputmode="numeric"
-            autocomplete="off"
-            maxlength="6"
-            :disabled="loading"
-          />
-        </div>
+    <!-- Refresh -->
+    <button
+      type="button"
+      class="btn btn--secondary"
+      style="margin-bottom: 1.5rem"
+      :disabled="status === 'pending'"
+      @click="refresh()"
+    >
+      {{ status === 'pending' ? 'Refreshing…' : '↻ Refresh' }}
+    </button>
 
-        <button type="submit" class="btn btn--primary btn--full" :disabled="loading" :aria-busy="loading">
-          <span v-if="loading" class="spinner" aria-hidden="true" />
-          {{ loading ? 'Checking…' : 'Check Status' }}
-        </button>
-      </form>
+    <!-- Loading -->
+    <div v-if="status === 'pending' && !queue" class="page-loading" aria-label="Loading queue">
+      <div class="spinner spinner--dark" />
     </div>
 
     <!-- Error -->
-    <div v-if="errorMsg" class="alert alert--error" role="alert" style="margin-bottom: 1rem">
-      {{ errorMsg }}
+    <div v-else-if="error" class="alert alert--error" role="alert">
+      Unable to load the queue right now. Please try again or ask a staff member.
     </div>
 
-    <!-- Result -->
-    <div v-if="result" class="status-result" aria-live="polite">
-      <div class="status-result__header">
-        <div>
-          <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 0.2rem">
-            Queue #{{ result.queueNumber }}
-          </p>
-          <p style="font-weight: 700; font-size: 1.1rem">{{ result.modelName }}</p>
+    <!-- Queue list -->
+    <div v-else-if="queue && queue.length > 0" class="queue-list" role="list">
+      <div
+        v-for="(entry, i) in queue"
+        :key="i"
+        class="card queue-item"
+        :class="{ 'queue-item--ready': entry.printed }"
+        role="listitem"
+      >
+        <div class="queue-item__body">
+          <p class="queue-item__name">{{ entry.name }}</p>
+          <p class="queue-item__model">{{ entry.label }}</p>
+          <p class="queue-item__color">{{ entry.color }}</p>
         </div>
-        <span class="badge" :class="statusClass(result.status)" style="font-size: 0.875rem; padding: 0.4rem 1rem">
-          {{ result.status }}
+        <span
+          class="badge"
+          :class="entry.printed ? 'badge--status-done' : 'badge--status-queued'"
+        >
+          {{ entry.printed ? 'Ready for Pickup' : 'Waiting' }}
         </span>
       </div>
+    </div>
 
-      <div class="status-result__body">
-        <ul class="details-list">
-          <li>
-            <span class="dl-label">Color</span>
-            <span class="dl-value">{{ result.color }}</span>
-          </li>
-          <li>
-            <span class="dl-label">Submitted</span>
-            <span class="dl-value">{{ formatDate(result.timestamp) }}</span>
-          </li>
-          <li v-if="result.notes">
-            <span class="dl-label">Notes</span>
-            <span class="dl-value">{{ result.notes }}</span>
-          </li>
-        </ul>
-      </div>
+    <!-- Empty -->
+    <div v-else class="empty-state">
+      <span class="empty-state__icon" aria-hidden="true">🎉</span>
+      <p class="empty-state__title">No pending prints</p>
+      <p>All requests have been completed! Browse the catalog to submit a new one.</p>
     </div>
 
     <!-- Nav -->
     <div style="margin-top: 2rem; text-align: center">
-      <NuxtLink to="/" class="btn btn--secondary">← Back to Catalog</NuxtLink>
+      <NuxtLink to="/" class="btn btn--primary">← Browse Catalog</NuxtLink>
     </div>
   </div>
 </template>
+
+<style scoped>
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-md);
+}
+
+.queue-item--ready {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.queue-item__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-md);
+  min-width: 0;
+}
+
+.queue-item__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.queue-item__model {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.queue-item__color {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+</style>

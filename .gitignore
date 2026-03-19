@@ -28,4 +28,7 @@ Thumbs.db
 *.sln
 *.sw?
 /.vercel
+
+# Local 3D model files (large binaries, not needed in repo)
+3D Printing Catalogue/
 /3D Printing Catalogue
