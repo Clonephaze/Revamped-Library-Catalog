@@ -1,8 +1,10 @@
 <script setup lang="ts">
+const config = useRuntimeConfig()
+
 useHead({
-  title: 'Print Request Submitted — Northeast Branch Library',
+  title: 'Print Request Submitted — Community Library',
   meta: [
-    { name: 'description', content: 'Your 3D print request has been submitted. We\'ll contact you when it\'s ready for pickup at the Northeast Branch Library.' },
+    { name: 'description', content: 'Your 3D print request has been submitted. We\'ll contact you when it\'s ready for pickup at the Community Library.' },
   ],
 })
 
@@ -52,10 +54,10 @@ if (!name && !model) {
       </ul>
     </div>
 
-    <!-- Pickup disclaimer -->
+    <!-- Demo note -->
     <div class="alert alert--info" style="margin-bottom: 1.5rem">
-      <strong>Please note:</strong> Prints must be picked up within one week of completion.
-      Unclaimed prints will be placed in the community bin and become available for anyone to take.
+      <strong>This is a live demo.</strong> Your request was written to a real Google Sheet.
+      Check the <NuxtLink to="/status">print queue</NuxtLink> to see it appear.
     </div>
 
     <!-- Actions -->
@@ -66,6 +68,15 @@ if (!name && !model) {
       <NuxtLink to="/" class="btn btn--primary btn--full">
         Back to Catalog
       </NuxtLink>
+      <a
+        v-if="config.public.sheetUrl"
+        :href="config.public.sheetUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn--secondary btn--full"
+      >
+        📊 View the Google Sheet
+      </a>
     </div>
   </div>
 </template>

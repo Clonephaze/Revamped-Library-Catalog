@@ -1,8 +1,10 @@
 <script setup lang="ts">
+const config = useRuntimeConfig()
+
 useHead({
-  title: 'Print Queue — Northeast Branch Library',
+  title: 'Print Queue — Community Library',
   meta: [
-    { name: 'description', content: 'Check the status of your 3D print request at the Northeast Branch Library. See which prints are waiting and which are ready for pickup.' },
+    { name: 'description', content: 'Check the status of your 3D print request at the Community Library. See which prints are waiting and which are ready for pickup.' },
   ],
 })
 
@@ -20,7 +22,7 @@ const { data: queue, status, error, refresh } = useLazyFetch<PendingPrint[]>('/a
   <div class="container" style="max-width: 700px">
     <h1 class="page-title">Print Queue</h1>
     <p class="page-subtitle">
-      See where your request is in the queue. Staff update this as prints are completed.
+      See where your request is in the queue. Statuses are updated as prints are completed.
     </p>
 
     <!-- Refresh -->
@@ -50,7 +52,7 @@ const { data: queue, status, error, refresh } = useLazyFetch<PendingPrint[]>('/a
 
       <!-- Error -->
       <div v-else-if="error" class="alert alert--error" role="alert">
-        Unable to load the queue right now. Please try again or ask a staff member.
+        Unable to load the queue right now. Please try again later.
       </div>
 
       <!-- Queue list -->
@@ -85,8 +87,17 @@ const { data: queue, status, error, refresh } = useLazyFetch<PendingPrint[]>('/a
     </div>
 
     <!-- Nav -->
-    <div style="margin-top: 2rem; text-align: center">
+    <div style="margin-top: 2rem; text-align: center; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap">
       <NuxtLink to="/" class="btn btn--primary">← Browse Catalog</NuxtLink>
+      <a
+        v-if="config.public.sheetUrl"
+        :href="config.public.sheetUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn--secondary"
+      >
+        📊 View the Google Sheet
+      </a>
     </div>
   </div>
 </template>

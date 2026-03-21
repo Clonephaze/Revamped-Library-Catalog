@@ -74,7 +74,7 @@ async function submit() {
   } catch (err: unknown) {
     const h3 = err as { data?: { statusMessage?: string } }
     errorMsg.value =
-      h3?.data?.statusMessage ?? 'Something went wrong. Please try again or ask a staff member.'
+      h3?.data?.statusMessage ?? 'Something went wrong. Please try again later.'
     submitting.value = false
   }
 }
