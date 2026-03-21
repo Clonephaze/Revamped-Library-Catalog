@@ -27,6 +27,22 @@ function isValidContact(value: string): boolean {
   return EMAIL_RE.test(value) || PHONE_RE.test(cleaned)
 }
 
+// Mask contact info before writing to the publicly-visible sheet.
+// Email: j***@e***.com  |  Phone: ***-***-1234
+function garbleContact(value: string): string {
+  if (EMAIL_RE.test(value)) {
+    const [local, domain] = value.split('@')
+    const [domainName, ...tldParts] = domain.split('.')
+    const maskedLocal = local[0] + '***'
+    const maskedDomain = domainName[0] + '***'
+    return `${maskedLocal}@${maskedDomain}.${tldParts.join('.')}`
+  }
+  // Phone: keep last 4 digits visible
+  const digits = value.replace(/\D/g, '')
+  const last4 = digits.slice(-4)
+  return `***-***-${last4}`
+}
+
 export default defineEventHandler(async (event) => {
   // Rate limit by IP
   const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown'
@@ -67,8 +83,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Garble the contact before writing to the publicly-visible sheet
+  const toWrite = { ...sanitized, contact: garbleContact(sanitized.contact) }
+
   try {
-    await submitPrint(sanitized)
+    await submitPrint(toWrite)
     recentSubmissions.set(ip, Date.now())
 
     return {
