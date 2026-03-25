@@ -9,6 +9,7 @@
         <nav class="header-nav" aria-label="Site navigation">
           <NuxtLink to="/">Catalog</NuxtLink>
           <NuxtLink to="/status">Queue</NuxtLink>
+          <NuxtLink to="/print" class="header-nav__print">🖨 Print</NuxtLink>
         </nav>
       </div>
     </header>
