@@ -349,8 +349,8 @@ function triggerPrint() {
 }
 
 .pr-card {
-  border: 1px solid #dde3d8;
-  border-radius: 6px;
+  border: 3px solid #dde3d8;
+  border-radius: 4px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
