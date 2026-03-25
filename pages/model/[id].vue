@@ -16,7 +16,7 @@ const id = route.params.id as string
 const { data: model, status, error } = await useFetch<CatalogItem>(`/api/model/${id}`)
 
 useHead(() => ({
-  title: model.value ? `${model.value.name} — Northeast Branch Library` : '3D Print Model',
+  title: model.value ? `${model.value.name} — Community Library` : '3D Print Model',
 }))
 
 const showForm = ref(false)

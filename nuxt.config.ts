@@ -11,11 +11,10 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/KernCountyLogo.svg' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
       meta: [
         { name: 'theme-color', content: '#093547' },
-        { name: 'robots', content: 'noindex, nofollow' },
       ],
     },
     pageTransition: { name: 'page', mode: 'out-in' },
@@ -30,6 +29,9 @@ export default defineNuxtConfig({
     googleServiceAccountEmail: '',
     googleServiceAccountKey: '',
     googleSpreadsheetId: '',
+    public: {
+      sheetUrl: '',
+    },
   },
 
   // No hardcoded Nitro preset — Vercel auto-detects Nuxt and sets it at deploy

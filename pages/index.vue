@@ -1,8 +1,8 @@
 <script setup lang="ts">
 useHead({
-  title: '3D Print Catalog — Northeast Branch Library',
+  title: '3D Print Catalog — Community Library',
   meta: [
-    { name: 'description', content: 'Browse and request free 3D prints from the Northeast Branch Library. Choose from dozens of models and pick up your print at the service desk.' },
+    { name: 'description', content: 'Browse and request free 3D prints from the Community Library. Choose from dozens of models and submit a print request.' },
   ],
 })
 
@@ -25,7 +25,7 @@ const { data: catalog, status, error } = useLazyFetch<CatalogItem[]>('/api/catal
   <div class="container">
     <h1 class="page-title">3D Print Catalog</h1>
     <p class="page-subtitle">
-      Browse our models and tap one to request a print. Staff will contact you when it's ready.
+      Browse our models and tap one to request a print. You'll be contacted when it's ready.
     </p>
 
     <!-- Loading skeleton -->
@@ -42,8 +42,7 @@ const { data: catalog, status, error } = useLazyFetch<CatalogItem[]>('/api/catal
 
     <!-- Error -->
     <div v-else-if="error" class="alert alert--error" role="alert">
-      Unable to load the catalog right now. Please try refreshing or ask a staff member for
-      assistance.
+      Unable to load the catalog right now. Please try refreshing the page.
     </div>
 
     <!-- Catalog grid -->
@@ -53,7 +52,7 @@ const { data: catalog, status, error } = useLazyFetch<CatalogItem[]>('/api/catal
     <div v-else class="empty-state">
       <span class="empty-state__icon" aria-hidden="true">📭</span>
       <p class="empty-state__title">No models available right now</p>
-      <p>Check back soon, or ask a staff member for more information.</p>
+      <p>Check back soon for new additions.</p>
     </div>
   </div>
 </template>
