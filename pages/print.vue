@@ -413,12 +413,13 @@ function triggerPrint() {
 }
 
 .pr-cover__org-name {
-    font-size: 1.8rem;
+    font-size: 2.5rem;
     font-weight: 800;
     color: white;
     line-height: 1.15;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    max-width: 18ch;
 }
 
 /* Circular icon badges */
@@ -501,7 +502,6 @@ function triggerPrint() {
     left: 0;
     right: 0;
     padding: 1.2in 0.55in 0.45in;
-    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 60%, transparent 100%);
 }
 
 .pr-cover__title {
@@ -509,20 +509,28 @@ function triggerPrint() {
     font-weight: 900;
     color: white;
     line-height: 0.95;
-    text-shadow:
-        0 2px 4px rgba(0,0,0,0.8),
-        0 4px 16px rgba(0,0,0,0.5);
     letter-spacing: -0.02em;
+    -webkit-text-stroke: 1px rgba(0,0,0,0.4);
+    text-shadow:
+        -2px -2px 0 rgba(0,0,0,0.7),
+         2px -2px 0 rgba(0,0,0,0.7),
+        -2px  2px 0 rgba(0,0,0,0.7),
+         2px  2px 0 rgba(0,0,0,0.7),
+         0 3px 10px rgba(0,0,0,0.6);
 }
 
 .pr-cover__subtitle {
     font-size: 2rem;
     font-weight: 800;
     color: #a3e635;
-    text-shadow:
-        0 1px 3px rgba(0,0,0,0.9),
-        0 3px 12px rgba(0,0,0,0.5);
     margin-top: 0.05in;
+    -webkit-text-stroke: 1px rgba(0,0,0,0.35);
+    text-shadow:
+        -2px -2px 0 rgba(0,0,0,0.7),
+         2px -2px 0 rgba(0,0,0,0.7),
+        -2px  2px 0 rgba(0,0,0,0.7),
+         2px  2px 0 rgba(0,0,0,0.7),
+         0 3px 10px rgba(0,0,0,0.6);
 }
 
 /* Footer strip (stats + message inside cover bg) */
