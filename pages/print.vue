@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import draggable from 'vuedraggable'
 definePageMeta({ layout: false })
 
 useHead({ title: 'Print Catalog' })
+
+// ─── Google Sheets template URL ──────────────────────────────
+// Replace YOUR_TEMPLATE_ID with the actual sheet ID once the template is published.
+const TEMPLATE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1JhNDhHVgs82gIcvAkGlysNNK0jDcQD2EbJvwOBIqkDs/copy'
 
 interface CatalogItem {
     modelId: string
@@ -20,36 +25,109 @@ interface Filament {
     hex: string
 }
 
-const [{ data: catalog }, { data: filaments }] = await Promise.all([
-    useFetch<CatalogItem[]>('/api/catalog'),
-    useFetch<Filament[]>('/api/filaments'),
-])
+// ─── Persistent settings (load before refs, avoids async-setup race) ───────
+const STORAGE_KEY = 'print-catalog-settings'
+const _saved: Record<string, any> = import.meta.client
+    ? (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') ?? {})
+    : {}
+
+// ─── Branch sheet ─────────────────────────────────────────────
+// Accepts the full Google Sheets URL; extracts just the spreadsheet ID.
+const sheetUrl = ref<string>(_saved.sheetUrl ?? '')
+
+const parsedSheetId = computed((): string | undefined => {
+    const m = sheetUrl.value.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,60})/)
+    return m?.[1]
+})
+
+// Show a validation hint when the user has typed something but it doesn't parse
+const sheetUrlError = computed((): string | null => {
+    if (!sheetUrl.value) return null
+    return parsedSheetId.value ? null : 'Paste the full Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/…)'
+})
+
+// Query params for both data fetches — empty object means "use the default sheet"
+const fetchQuery = computed(() =>
+    parsedSheetId.value ? { sheetId: parsedSheetId.value } : {}
+)
+
+const { data: catalog, pending: catalogPending, refresh: refreshCatalog } = await useFetch<CatalogItem[]>('/api/catalog', { query: fetchQuery })
+const { data: filaments, refresh: refreshFilaments } = await useFetch<Filament[]>('/api/filaments', { query: fetchQuery })
+
+async function refreshBranchData() {
+    await Promise.all([refreshCatalog(), refreshFilaments()])
+}
 
 // ─── Cover ───────────────────────────────────────────────────
-const libraryName      = ref('Community Library')
-const coverMessage     = ref("See a model you like? Visit the library's digital catalog to submit a print request — staff will print it and notify you when it's ready for pickup.")
-const coverColor       = ref('#375C2D')
-const accentColor      = ref('#a3e635')
-const coverTitle       = ref('3-D\nPrinting Catalogue')
-const coverPhotoUrl    = ref('/backgroundPrint.jpg')
-const coverIcon1Url    = ref('/printer.png')
-const coverIcon2Url    = ref('/rulerAndSquare.png')
-const showWave         = ref(true)
-const photoTintColor   = ref('#001a2c')
-const photoTintOpacity = ref(0)
+const libraryName      = ref<string>(_saved.libraryName      ?? 'Community Library')
+const coverMessage     = ref<string>(_saved.coverMessage     ?? "See a model you like? Visit the library's digital catalog to submit a print request — staff will print it and notify you when it's ready for pickup.")
+const coverColor       = ref<string>(_saved.coverColor       ?? '#375C2D')
+const accentColor      = ref<string>(_saved.accentColor      ?? '#a3e635')
+const coverTitle       = ref<string>(_saved.coverTitle       ?? '3-D\nPrinting Catalogue')
+const coverPhotoUrl    = ref<string>(_saved.coverPhotoUrl    ?? '/backgroundPrint.jpg')
+const coverIcon1Url    = ref<string>(_saved.coverIcon1Url    ?? '/printer.png')
+const coverIcon2Url    = ref<string>(_saved.coverIcon2Url    ?? '/rulerAndSquare.png')
+const photoTintColor   = ref<string>(_saved.photoTintColor   ?? '#001a2c')
+const photoTintOpacity = ref<number>(_saved.photoTintOpacity ?? 0)
 
 // ─── Layout options ───────────────────────────────────────────
-const cardsPerPage      = ref(6)
-const pageSize          = ref<'letter'|'a4'>('letter')
-const showCover         = ref(true)
-const showColorsPage    = ref(true)
-const showCardImages    = ref(true)
-const showPageNumbers   = ref(false)
-const showLibraryHeader = ref(false)
+const cardsPerPage      = ref<number>(_saved.cardsPerPage      ?? 6)
+const pageSize          = ref<'letter'|'a4'>(_saved.pageSize   ?? 'letter')
+const showCover         = ref<boolean>(_saved.showCover         ?? true)
+const showColorsPage    = ref<boolean>(_saved.showColorsPage    ?? true)
+const showCardImages    = ref<boolean>(_saved.showCardImages    ?? true)
+const showPageNumbers   = ref<boolean>(_saved.showPageNumbers   ?? false)
+const showLibraryHeader = ref<boolean>(_saved.showLibraryHeader ?? false)
 
-// ─── Panel ───────────────────────────────────────────────────
-const panelOpen = ref(true)
-onMounted(() => { if (window.innerWidth < 640) panelOpen.value = false })
+// ─── Panels ───────────────────────────────────────────────────
+const panelOpen      = ref(true)
+const rightPanelOpen = ref(true)
+
+// ─── Category / sort state ────────────────────────────────────
+const categoryOrder    = ref<string[]>(Array.isArray(_saved.categoryOrder)    ? _saved.categoryOrder    : [])
+const hiddenCategories = ref<string[]>(Array.isArray(_saved.hiddenCategories) ? _saved.hiddenCategories : [])
+const itemSort         = ref<'name-asc'|'name-desc'|'time-asc'|'time-desc'>(_saved.itemSort ?? 'name-asc')
+const featuredFirst    = ref<boolean>(_saved.featuredFirst ?? false)
+const featuredTag      = ref<string>(_saved.featuredTag    ?? 'Featured')
+
+onMounted(() => {
+    if (window.innerWidth < 640) { panelOpen.value = false; rightPanelOpen.value = false }
+})
+
+// Persist whenever any setting changes
+watch(
+    [sheetUrl, libraryName, coverMessage, coverColor, accentColor, coverTitle,
+     photoTintColor, photoTintOpacity, cardsPerPage, pageSize,
+     showCover, showColorsPage, showCardImages, showPageNumbers, showLibraryHeader,
+     categoryOrder, hiddenCategories, itemSort, featuredFirst, featuredTag],
+    () => {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                sheetUrl:          sheetUrl.value,
+                libraryName:       libraryName.value,
+                coverMessage:      coverMessage.value,
+                coverColor:        coverColor.value,
+                accentColor:       accentColor.value,
+                coverTitle:        coverTitle.value,
+                photoTintColor:    photoTintColor.value,
+                photoTintOpacity:  photoTintOpacity.value,
+                cardsPerPage:      cardsPerPage.value,
+                pageSize:          pageSize.value,
+                showCover:         showCover.value,
+                showColorsPage:    showColorsPage.value,
+                showCardImages:    showCardImages.value,
+                showPageNumbers:   showPageNumbers.value,
+                showLibraryHeader: showLibraryHeader.value,
+                categoryOrder:     categoryOrder.value,
+                hiddenCategories:  hiddenCategories.value,
+                itemSort:          itemSort.value,
+                featuredFirst:     featuredFirst.value,
+                featuredTag:       featuredTag.value,
+            }))
+        } catch { /* ignore storage quota errors */ }
+    },
+    { deep: true }
+)
 
 // ─── Color theme presets ─────────────────────────────────────
 const colorThemes = [
@@ -88,12 +166,25 @@ function onCoverPhoto(e: Event) { handleFile(coverPhotoUrl, e) }
 function onIcon1(e: Event) { handleFile(coverIcon1Url, e) }
 function onIcon2(e: Event) { handleFile(coverIcon2Url, e) }
 function setCardsPerPage(n: number) { cardsPerPage.value = n }
+function clearSheetUrl() { sheetUrl.value = '' }
+function toggleSettingsPanel() {
+    panelOpen.value = !panelOpen.value
+    if (panelOpen.value && window.innerWidth < 1300) rightPanelOpen.value = false
+}
+function toggleCatalogPanel() {
+    rightPanelOpen.value = !rightPanelOpen.value
+    if (rightPanelOpen.value && window.innerWidth < 1300) panelOpen.value = false
+}
+function toggleCategoryHidden(category: string) {
+    const h = hiddenCategories.value
+    hiddenCategories.value = h.includes(category) ? h.filter(c => c !== category) : [...h, category]
+}
 const printDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
 })
 
-// Group catalog by category, sort categories and items within each
-const grouped = computed(() => {
+// ─── Raw alphabetical groups — drives the category manager UI ─
+const allGroups = computed(() => {
     if (!catalog.value) return []
     const map = new Map<string, CatalogItem[]>()
     for (const item of catalog.value) {
@@ -103,17 +194,60 @@ const grouped = computed(() => {
     }
     return [...map.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([category, items]) => ({
-            category,
-            items: items.sort((a, b) => a.name.localeCompare(b.name)),
-        }))
+        .map(([category, items]) => ({ category, items }))
+})
+
+// Auto-sync categoryOrder whenever the catalog changes
+watch(allGroups, (groups) => {
+    const existing    = new Set(categoryOrder.value)
+    const catalogCats = new Set(groups.map(g => g.category))
+    const newCats     = groups.map(g => g.category).filter(c => !existing.has(c))
+    if (newCats.length || [...existing].some(c => !catalogCats.has(c))) {
+        categoryOrder.value = [
+            ...categoryOrder.value.filter(c => catalogCats.has(c)),
+            ...newCats,
+        ]
+    }
+}, { immediate: true })
+
+// Category manager rows: custom-sorted with hidden flag
+const categoryManager = computed(() =>
+    categoryOrder.value.map(category => ({
+        category,
+        hidden: hiddenCategories.value.includes(category),
+    }))
+)
+
+// Ordered, filtered, sorted groups — what actually gets paginated
+const orderedVisibleGroups = computed(() => {
+    const orderMap = new Map(categoryOrder.value.map((cat, i) => [cat, i]))
+    const sorted = [...allGroups.value].sort((a, b) => {
+        const ai = orderMap.get(a.category) ?? Infinity
+        const bi = orderMap.get(b.category) ?? Infinity
+        return ai !== bi ? ai - bi : a.category.localeCompare(b.category)
+    })
+    return sorted
+        .filter(g => !hiddenCategories.value.includes(g.category))
+        .map(g => {
+            let items = [...g.items]
+            switch (itemSort.value) {
+                case 'name-asc':  items.sort((a, b) => a.name.localeCompare(b.name)); break
+                case 'name-desc': items.sort((a, b) => b.name.localeCompare(a.name)); break
+                case 'time-asc':  items.sort((a, b) => a.printTimeMinutes - b.printTimeMinutes); break
+                case 'time-desc': items.sort((a, b) => b.printTimeMinutes - a.printTimeMinutes); break
+            }
+            if (featuredFirst.value) {
+                items = [...items.filter(i => i.tags?.length), ...items.filter(i => !i.tags?.length)]
+            }
+            return { ...g, items }
+        })
 })
 
 // Flatten into pages with page numbers
 const pages = computed(() => {
     const result: { category: string; showHeading: boolean; items: CatalogItem[]; pageNum: number }[] = []
     let n = showCover.value ? 2 : 1
-    for (const group of grouped.value) {
+    for (const group of orderedVisibleGroups.value) {
         splitIntoChunks(group.items, cardsPerPage.value).forEach((chunk, i) => {
             result.push({ category: group.category, showHeading: i === 0, items: chunk, pageNum: n++ })
         })
@@ -162,16 +296,21 @@ function triggerPrint() {
         <div class="pr-bar no-print">
             <div class="pr-bar__start">
                 <NuxtLink to="/" class="pr-bar__back">← Back</NuxtLink>
-                <button class="pr-bar__toggle" @click="panelOpen = !panelOpen">
+                <button class="pr-bar__toggle" :class="{ 'pr-bar__toggle--active': panelOpen }" @click="toggleSettingsPanel">
                     ⚙ {{ panelOpen ? 'Hide' : 'Settings' }}
+                </button>
+                <button class="pr-bar__toggle" :class="{ 'pr-bar__toggle--active': rightPanelOpen }" @click="toggleCatalogPanel">
+                    📋 {{ rightPanelOpen ? 'Hide' : 'Catalog' }}
                 </button>
             </div>
             <span class="pr-bar__label">Print Preview</span>
-            <button class="pr-bar__btn" @click="triggerPrint">🖨 Print Catalog</button>
+            <div class="pr-bar__end">
+                <button class="pr-bar__btn" @click="triggerPrint">🖨 Print Catalog</button>
+            </div>
         </div>
 
         <!-- ── Mobile backdrop ──────────────────────────────────── -->
-        <div v-if="panelOpen" class="pr-backdrop no-print" aria-hidden="true" @click="panelOpen = false" />
+        <div v-if="panelOpen || rightPanelOpen" class="pr-backdrop no-print" aria-hidden="true" @click="panelOpen = false; rightPanelOpen = false" />
 
         <!-- ── Content row ──────────────────────────────────────── -->
         <div class="pr-content">
@@ -188,22 +327,13 @@ function triggerPrint() {
                     <button class="pr-panel__close" title="Close" @click="panelOpen = false">✕</button>
                 </div>
 
-                <!-- 📚 Library -->
+                <!-- 🎨 Design -->
                 <div class="pr-panel__section">
-                    <p class="pr-panel__section-label">📚 Library</p>
+                    <p class="pr-panel__section-label">🎨 Design</p>
                     <label class="pr-panel__field">
                         <span>Library Name</span>
                         <input v-model="libraryName" class="pr-panel__input" placeholder="Community Library" />
                     </label>
-                    <label class="pr-panel__field">
-                        <span>Cover Message</span>
-                        <textarea v-model="coverMessage" class="pr-panel__input pr-panel__textarea" rows="3" />
-                    </label>
-                </div>
-
-                <!-- 🎨 Design -->
-                <div class="pr-panel__section">
-                    <p class="pr-panel__section-label">🎨 Design</p>
                     <div class="pr-panel__field">
                         <span>Quick Themes</span>
                         <div class="pr-panel__themes">
@@ -219,6 +349,10 @@ function triggerPrint() {
                     <label class="pr-panel__field">
                         <span>Cover Title <small>(one line per row)</small></span>
                         <textarea v-model="coverTitle" class="pr-panel__input pr-panel__textarea" rows="2" />
+                    </label>
+                    <label class="pr-panel__field">
+                        <span>Cover Message</span>
+                        <textarea v-model="coverMessage" class="pr-panel__input pr-panel__textarea" rows="2" />
                     </label>
                     <div class="pr-panel__two-col">
                         <label class="pr-panel__field">
@@ -262,7 +396,7 @@ function triggerPrint() {
                     </div>
                 </div>
 
-                <!-- 📄 Layout -->
+                <!--  Layout -->
                 <div class="pr-panel__section">
                     <p class="pr-panel__section-label">📄 Layout</p>
                     <div class="pr-panel__field">
@@ -285,9 +419,9 @@ function triggerPrint() {
                     </div>
                 </div>
 
-                <!-- 🔀 Sections -->
+                <!-- � Visibility -->
                 <div class="pr-panel__section">
-                    <p class="pr-panel__section-label">🔀 Sections</p>
+                    <p class="pr-panel__section-label">👁 Visibility</p>
                     <label class="pr-panel__toggle-row">
                         <span>Cover Page</span>
                         <span class="pr-panel__switch"><input v-model="showCover" type="checkbox" /><span /></span>
@@ -299,10 +433,6 @@ function triggerPrint() {
                     <label class="pr-panel__toggle-row">
                         <span>Card Images</span>
                         <span class="pr-panel__switch"><input v-model="showCardImages" type="checkbox" /><span /></span>
-                    </label>
-                    <label class="pr-panel__toggle-row">
-                        <span>Wave Divider</span>
-                        <span class="pr-panel__switch"><input v-model="showWave" type="checkbox" /><span /></span>
                     </label>
                     <label class="pr-panel__toggle-row">
                         <span>Page Numbers</span>
@@ -320,7 +450,11 @@ function triggerPrint() {
             <!-- ── Pages scroll area ─────────────────────────────── -->
             <div class="pr-pages">
 
-                <!-- Cover page -->
+                <!-- Loading overlay when fetching a branch sheet -->
+                <div v-if="catalogPending" class="pr-loading" aria-live="polite">
+                    <span class="pr-loading__spinner" />
+                    <span>Loading catalog…</span>
+                </div>
                 <div v-if="showCover" class="pr-page pr-cover" :style="[pageStyle, { background: coverColor }]">
                     <div class="pr-cover__top">
                         <div class="pr-cover__org">
@@ -334,7 +468,7 @@ function triggerPrint() {
                         <img :src="coverIcon2Url" alt="Icon" />
                     </div>
                     <div class="pr-cover__photo-wrap">
-                        <svg v-if="showWave" class="pr-cover__wave" :style="{ color: coverColor }" viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
+                        <svg class="pr-cover__wave" :style="{ color: coverColor }" viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
                             <path d="M0,0 L0,40 Q250,100 500,40 Q750,-20 1000,40 L1000,0 Z" fill="currentColor" />
                         </svg>
                         <div v-if="coverPhotoUrl" class="pr-cover__photo">
@@ -405,6 +539,103 @@ function triggerPrint() {
                 </div>
 
             </div><!-- end .pr-pages -->
+
+            <!-- ── Right panel: Catalog settings ───────────────────── -->
+            <aside class="pr-panel pr-panel--right no-print" :class="{ 'pr-panel--open': rightPanelOpen }">
+
+                <div class="pr-panel__header">
+                    <span class="pr-panel__logo">📋</span>
+                    <div>
+                        <p class="pr-panel__title">Catalog</p>
+                        <p class="pr-panel__sub">Branch, sort &amp; categories</p>
+                    </div>
+                    <button class="pr-panel__close" title="Close" @click="rightPanelOpen = false">✕</button>
+                </div>
+
+                <!-- 🏙 Branch Sheet -->
+                <div class="pr-panel__section">
+                    <p class="pr-panel__section-label">🏙 Branch Sheet</p>
+                    <div class="pr-panel__field">
+                        <span>Google Sheet URL <small>(optional)</small></span>
+                        <div class="pr-url-row">
+                            <input
+                                v-model="sheetUrl"
+                                class="pr-panel__input"
+                                :class="{ 'pr-panel__input--error': sheetUrlError }"
+                                placeholder="https://docs.google.com/spreadsheets/d/…"
+                                spellcheck="false"
+                            />
+                            <button v-if="sheetUrl" class="pr-panel__icon-btn" title="Clear URL" @click="clearSheetUrl">✕</button>
+                        </div>
+                        <div v-if="parsedSheetId" class="pr-url-actions">
+                            <button
+                                class="pr-panel__icon-btn pr-panel__icon-btn--refresh"
+                                :disabled="catalogPending"
+                                title="Reload from sheet"
+                                @click="refreshBranchData"
+                            ><span :class="{ 'pr-panel__icon-btn--spinning': catalogPending }">↻</span> Refresh</button>
+                            <span class="pr-panel__field-ok">✓ Sheet linked</span>
+                        </div>
+                        <span v-else-if="sheetUrlError" class="pr-panel__field-error">{{ sheetUrlError }}</span>
+                        <span v-else class="pr-panel__field-hint">Leave blank to use the default catalog</span>
+                    </div>
+                    <a :href="TEMPLATE_SHEET_URL" target="_blank" rel="noopener" class="pr-panel__template-btn">
+                        📋 Copy catalog template →
+                    </a>
+                    <ol class="pr-panel__steps">
+                        <li>Copy the template to your Drive</li>
+                        <li>Fill in the <em>catalog</em> &amp; <em>filaments</em> tabs</li>
+                        <li><strong>Share → "Anyone with the link" → Viewer</strong> (required)</li>
+                        <li>Paste the sheet URL above</li>
+                    </ol>
+                </div>
+
+                <!-- 📂 Categories -->
+                <div class="pr-panel__section">
+                    <p class="pr-panel__section-label">📂 Categories</p>
+                    <p v-if="!categoryManager.length" class="pr-panel__field-hint">No catalog loaded yet</p>
+                    <draggable
+                        v-model="categoryOrder"
+                        item-key="(item) => item"
+                        handle=".pr-cat-row__handle"
+                        animation="150"
+                        ghost-class="pr-cat-row--ghost"
+                    >
+                        <template #item="{ element: cat }">
+                            <div
+                                class="pr-cat-row"
+                                :class="{ 'pr-cat-row--hidden': hiddenCategories.includes(cat) }"
+                            >
+                                <span class="pr-cat-row__handle" title="Drag to reorder">☰</span>
+                                <span class="pr-cat-row__name">{{ cat }}</span>
+                                <label class="pr-panel__switch">
+                                    <input type="checkbox" :checked="!hiddenCategories.includes(cat)" @change="toggleCategoryHidden(cat)" />
+                                    <span />
+                                </label>
+                            </div>
+                        </template>
+                    </draggable>
+                </div>
+
+                <!-- ⚙ Sort Order -->
+                <div class="pr-panel__section">
+                    <p class="pr-panel__section-label">⚙ Sort Order</p>
+                    <div class="pr-panel__field">
+                        <span>Item Order</span>
+                        <div class="pr-panel__seg">
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-asc' }" @click="itemSort = 'name-asc'">A–Z</button>
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-desc' }" @click="itemSort = 'name-desc'">Z–A</button>
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'time-asc' }" @click="itemSort = 'time-asc'">⏱↑</button>
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'time-desc' }" @click="itemSort = 'time-desc'">⏱↓</button>
+                        </div>
+                    </div>
+                    <label class="pr-panel__toggle-row">
+                        <span>Tagged items first</span>
+                        <span class="pr-panel__switch"><input v-model="featuredFirst" type="checkbox" /><span /></span>
+                    </label>
+                </div>
+
+            </aside>
         </div><!-- end .pr-content -->
     </div>
 </template>
@@ -465,6 +696,11 @@ function triggerPrint() {
     white-space: nowrap;
 }
 .pr-bar__toggle:hover { background: rgba(255,255,255,0.18); }
+.pr-bar__toggle--active {
+    background: rgba(128,164,63,0.25);
+    border-color: rgba(128,164,63,0.5);
+    color: white;
+}
 
 .pr-bar__label {
     font-size: 0.8rem;
@@ -472,6 +708,10 @@ function triggerPrint() {
     letter-spacing: 0.05em;
     text-transform: uppercase;
     opacity: 0.4;
+}
+@media (max-width: 639px) {
+    .pr-bar__label { display: none; }
+    .pr-bar__btn { font-size: 0.78rem; padding: 0.38rem 0.6rem; }
 }
 
 .pr-bar__btn {
@@ -486,6 +726,12 @@ function triggerPrint() {
     white-space: nowrap;
 }
 .pr-bar__btn:hover { background: #6b8c34; }
+
+.pr-bar__end {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
 /* ============================================================
    Mobile backdrop
@@ -534,25 +780,23 @@ function triggerPrint() {
     }
 }
 
-/* 640–1299px — narrower collapsible inline sidebar */
+/* 640–1299px — fixed overlay drawers (left from left, right from right) */
 @media (min-width: 640px) and (max-width: 1299px) {
     .pr-content { flex-direction: row; }
     .pr-panel {
-        width: 240px;
-        position: sticky;
+        position: fixed;
         top: 56px;
-        height: calc(100vh - 56px);
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        max-width: 85vw;
+        z-index: 160;
         overflow-y: auto;
-        border-right: 1px solid rgba(255,255,255,0.06);
-        transition: width 0.25s ease, opacity 0.2s;
-        flex-shrink: 0;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.4);
     }
-    .pr-panel:not(.pr-panel--open) {
-        width: 0;
-        overflow: hidden;
-        border-right: none;
-        opacity: 0;
-    }
+    .pr-panel--open { transform: translateX(0); }
     .pr-pages {
         flex: 1;
         min-width: 0;
@@ -803,6 +1047,96 @@ function triggerPrint() {
     flex-shrink: 0;
 }
 .pr-panel__print-btn:hover { background: #6b8c34; }
+
+/* Branch sheet URL field states */
+.pr-panel__input--error {
+    border-color: #f87171 !important;
+    background: rgba(248,113,113,0.08) !important;
+}
+.pr-panel__field-error {
+    font-size: 0.65rem;
+    color: #f87171;
+    line-height: 1.3;
+}
+.pr-panel__field-ok {
+    font-size: 0.65rem;
+    color: #86efac;
+    font-weight: 600;
+}
+.pr-panel__field-hint {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.35;
+}
+.pr-panel__field-hint--sm { margin-top: 0.15rem; }
+
+/* "Copy template" link styled as a subtle button */
+.pr-panel__template-btn {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #93c5fd;
+    text-decoration: none;
+    padding: 0.28rem 0.6rem;
+    border: 1px solid rgba(147,197,253,0.25);
+    border-radius: 5px;
+    transition: background 0.15s, border-color 0.15s;
+    align-self: flex-start;
+}
+.pr-panel__template-btn:hover {
+    background: rgba(147,197,253,0.1);
+    border-color: rgba(147,197,253,0.5);
+}
+
+/* Step-by-step instructions list in branch section */
+.pr-panel__steps {
+    margin: 0.35rem 0 0 1rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    list-style: decimal;
+}
+.pr-panel__steps li {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.4;
+    padding-left: 0.15rem;
+}
+.pr-panel__steps li strong {
+    color: #fde68a;
+    font-weight: 700;
+}
+.pr-panel__steps li em {
+    color: rgba(255,255,255,0.55);
+    font-style: normal;
+    font-weight: 600;
+}
+/* ============================================================
+   Loading overlay
+   ============================================================ */
+.pr-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    font-size: 0.875rem;
+    color: #6b7b75;
+}
+.pr-loading__spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(128,164,63,0.25);
+    border-top-color: #80a43f;
+    border-radius: 50%;
+    animation: pr-spin 0.7s linear infinite;
+}
+@keyframes pr-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* ============================================================
    Pages area & page shell
    ============================================================ */
@@ -1200,6 +1534,151 @@ function triggerPrint() {
 .pr-colors__name {
     font-size: 0.85rem;
     color: #333;
+}
+
+/* ============================================================
+   Right panel
+   ============================================================ */
+
+/* ≥1300px — sticky right sidebar */
+@media (min-width: 1300px) {
+    .pr-panel--right {
+        width: 260px;
+        border-right: none;
+        border-left: 1px solid rgba(255,255,255,0.06);
+        position: sticky;
+        top: 56px;
+        height: calc(100vh - 56px);
+        overflow-y: auto;
+        transition: width 0.25s ease, opacity 0.2s;
+        flex-shrink: 0;
+    }
+    .pr-panel--right:not(.pr-panel--open) {
+        width: 0;
+        overflow: hidden;
+        border-left: none;
+        opacity: 0;
+    }
+}
+
+/* 640–1299px — fixed overlay drawer from right */
+@media (min-width: 640px) and (max-width: 1299px) {
+    .pr-panel--right {
+        position: fixed;
+        top: 56px;
+        right: 0;
+        left: auto;
+        bottom: 0;
+        width: 280px;
+        max-width: 85vw;
+        z-index: 160;
+        overflow-y: auto;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    }
+    .pr-panel--right.pr-panel--open { transform: translateX(0); }
+}
+
+/* <640px — fixed overlay drawer from right */
+@media (max-width: 639px) {
+    .pr-panel--right {
+        position: fixed;
+        top: 56px;
+        right: 0;
+        left: auto;
+        bottom: 0;
+        width: 300px;
+        max-width: 90vw;
+        z-index: 160;
+        overflow-y: auto;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    }
+    .pr-panel--right.pr-panel--open { transform: translateX(0); }
+}
+
+/* ============================================================
+   URL row (input + icon buttons inline)
+   ============================================================ */
+.pr-url-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.pr-url-row .pr-panel__input { flex: 1; min-width: 0; }
+
+.pr-url-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+/* ============================================================
+   Ghost icon buttons (↑ ↓ ✕ ↻)
+   ============================================================ */
+.pr-panel__icon-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.35);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    border-radius: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+}
+.pr-panel__icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+.pr-panel__icon-btn:disabled { opacity: 0.18; cursor: default; pointer-events: none; }
+
+.pr-panel__icon-btn--refresh {
+    color: rgba(128,164,63,0.75);
+    font-weight: 600;
+    font-size: 0.72rem;
+}
+.pr-panel__icon-btn--refresh:hover { color: #80a43f; }
+.pr-panel__icon-btn--spinning { animation: pr-spin 0.8s linear infinite; }
+
+/* ============================================================
+   Category manager rows
+   ============================================================ */
+.pr-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.18rem 0;
+    cursor: default;
+}
+.pr-cat-row--ghost {
+    opacity: 0.35;
+    background: rgba(128,164,63,0.12);
+    border-radius: 4px;
+}
+.pr-cat-row__handle {
+    color: rgba(255,255,255,0.2);
+    font-size: 0.7rem;
+    cursor: grab;
+    padding: 0.1rem 0.15rem;
+    flex-shrink: 0;
+    line-height: 1;
+    transition: color 0.12s;
+}
+.pr-cat-row__handle:hover { color: rgba(255,255,255,0.55); }
+.pr-cat-row__handle:active { cursor: grabbing; }
+.pr-cat-row__name {
+    flex: 1;
+    font-size: 0.74rem;
+    color: rgba(255,255,255,0.65);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pr-cat-row--hidden .pr-cat-row__name {
+    opacity: 0.3;
+    text-decoration: line-through;
 }
 
 /* ============================================================

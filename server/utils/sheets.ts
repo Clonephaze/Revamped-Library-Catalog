@@ -60,6 +60,13 @@ function getSpreadsheetId(): string {
   return id
 }
 
+/** Validate that a string looks like a Google Sheets ID (alphanumeric, dash, underscore, 20-60 chars). */
+function assertValidSheetId(id: string): void {
+  if (!/^[a-zA-Z0-9_-]{20,60}$/.test(id)) {
+    throw new Error('Invalid spreadsheet ID format')
+  }
+}
+
 function createAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, '\n')
@@ -131,11 +138,12 @@ function rowToFilament(row: string[]): Filament {
 // Catalog
 // ---------------------------------------------------------------------------
 
-/** Return all active models from the catalog sheet. */
-export async function getCatalog(): Promise<CatalogItem[]> {
+/** Return all active models from the catalog sheet. Pass `sheetId` to read from a branch sheet instead of the default. */
+export async function getCatalog(sheetId?: string): Promise<CatalogItem[]> {
+  const spreadsheetId = sheetId ?? getSpreadsheetId()
   const client = sheetsClient()
   const response = await client.spreadsheets.values.get({
-    spreadsheetId: getSpreadsheetId(),
+    spreadsheetId,
     range: 'catalog!A2:H',
   })
 
@@ -200,10 +208,10 @@ function guessHex(name: string): string {
   return ''
 }
 
-/** Return all available filament colors, including hex swatch from cell background. */
-export async function getFilaments(): Promise<Filament[]> {
+/** Return all available filament colors, including hex swatch from cell background. Pass `sheetId` to read from a branch sheet instead of the default. */
+export async function getFilaments(sheetId?: string): Promise<Filament[]> {
   const client = sheetsClient()
-  const spreadsheetId = getSpreadsheetId()
+  const spreadsheetId = sheetId ?? getSpreadsheetId()
 
   // Use spreadsheets.get to read both values AND cell background colors
   const response = await client.spreadsheets.get({
