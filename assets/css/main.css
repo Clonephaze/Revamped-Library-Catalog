@@ -542,6 +542,10 @@ a:hover {
   flex-shrink: 0;
 }
 
+.color-swatch--split {
+  border: none;
+}
+
 .color-radio-label:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);

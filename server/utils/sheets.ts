@@ -32,7 +32,7 @@ export interface CatalogItem {
 
 export interface Filament {
   color: string
-  hex: string
+  hexes: string[]  // 1–4 swatch colors read from cell backgrounds
 }
 
 export interface QueueEntry {
@@ -126,11 +126,11 @@ function rowToQueueEntry(row: string[]): QueueEntry {
   }
 }
 
-/** filaments tab: A=Color/Name (background color holds the swatch) */
+/** filaments tab: A=Name  B=Color1  C=Color2  D=Color3  E=Color4 (B–E backgrounds hold swatches) */
 function rowToFilament(row: string[]): Filament {
   return {
     color: row[0] ?? '',
-    hex: '',
+    hexes: [],
   }
 }
 
@@ -208,43 +208,51 @@ function guessHex(name: string): string {
   return ''
 }
 
-/** Return all available filament colors, including hex swatch from cell background. Pass `sheetId` to read from a branch sheet instead of the default. */
+/** Return all available filament colors, reading name from column A and up to 4 swatch hex values from cell backgrounds in columns B–E. Pass `sheetId` to read from a branch sheet instead of the default. */
 export async function getFilaments(sheetId?: string): Promise<Filament[]> {
   const client = sheetsClient()
   const spreadsheetId = sheetId ?? getSpreadsheetId()
 
-  // Use spreadsheets.get to read both values AND cell background colors
+  // Read values AND cell background colors for columns A–E
   const response = await client.spreadsheets.get({
     spreadsheetId,
-    ranges: ['filaments!A2:A'],
+    ranges: ['filaments!A2:E'],
     fields: 'sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)',
   })
 
   const rowData = response.data.sheets?.[0]?.data?.[0]?.rowData ?? []
 
+  function bgToHex(bg: { red?: number | null; green?: number | null; blue?: number | null } | null | undefined): string | null {
+    if (!bg) return null
+    const r = Math.round((bg.red   ?? 0) * 255)
+    const g = Math.round((bg.green ?? 0) * 255)
+    const b = Math.round((bg.blue  ?? 0) * 255)
+    // Skip white / near-white (default sheet background)
+    if (r >= 245 && g >= 245 && b >= 245) return null
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+  }
+
   return rowData
     .map((row) => {
-      const cell = row.values?.[0]
-      const colorName = cell?.formattedValue ?? ''
-      const bg = cell?.effectiveFormat?.backgroundColor
+      const cells = row.values ?? []
+      const colorName = cells[0]?.formattedValue ?? ''
+      if (!colorName) return null
 
-      let hex = ''
-      if (bg) {
-        const r = Math.round((bg.red ?? 0) * 255)
-        const g = Math.round((bg.green ?? 0) * 255)
-        const b = Math.round((bg.blue ?? 0) * 255)
-        // Skip white/near-white backgrounds (default sheet bg)
-        if (r < 245 || g < 245 || b < 245) {
-          hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-        }
+      // Columns B–E (indices 1–4) hold the color swatches
+      const hexes = cells
+        .slice(1, 5)
+        .map((cell) => bgToHex(cell?.effectiveFormat?.backgroundColor))
+        .filter((h): h is string => h !== null)
+
+      // Fallback: if no cell backgrounds found, try guessing from the name
+      if (!hexes.length) {
+        const guessed = guessHex(colorName)
+        if (guessed) hexes.push(guessed)
       }
 
-      // Fallback: guess hex from the color name
-      if (!hex) hex = guessHex(colorName)
-
-      return { color: colorName, hex }
+      return { color: colorName, hexes }
     })
-    .filter((f) => f.color)
+    .filter((f): f is Filament => f !== null)
 }
 
 // ---------------------------------------------------------------------------

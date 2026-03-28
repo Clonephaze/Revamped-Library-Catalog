@@ -1,7 +1,7 @@
 <script setup lang="ts">
 interface Filament {
   color: string
-  hex: string
+  hexes: string[]
 }
 
 const props = defineProps<{
@@ -25,6 +25,25 @@ watch(filaments, (list) => {
     color.value = list[0].color
   }
 }, { immediate: true })
+
+function swatchStyle(hexes: string[]): Record<string, string> {
+  if (hexes.length === 0) return {}
+  if (hexes.length === 1) return { background: hexes[0] }
+  const N = hexes.length
+  const half = Math.min(10, 100 / (2 * N) * 0.6)
+  const stops: string[] = []
+  hexes.forEach((h, i) => {
+    if (i === 0) {
+      stops.push(`${h} 0%`, h)
+    } else if (i === N - 1) {
+      stops.push(h, `${h} 100%`)
+    } else {
+      const center = (2 * i + 1) * 100 / (2 * N)
+      stops.push(`${h} ${+(center - half).toFixed(1)}%`, `${h} ${+(center + half).toFixed(1)}%`)
+    }
+  })
+  return { background: `linear-gradient(135deg, ${stops.join(', ')})` }
+}
 
 async function submit() {
   errorMsg.value = null
@@ -142,9 +161,10 @@ async function submit() {
           />
           <label :for="`pf-color-${f.color}`" class="color-radio-label">
             <span
-              v-if="f.hex"
+              v-if="f.hexes.length"
               class="color-swatch"
-              :style="{ backgroundColor: f.hex }"
+              :class="{ 'color-swatch--split': f.hexes.length > 1 }"
+              :style="swatchStyle(f.hexes)"
               aria-hidden="true"
             />
             {{ f.color }}

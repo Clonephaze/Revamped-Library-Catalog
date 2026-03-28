@@ -22,7 +22,7 @@ interface CatalogItem {
 
 interface Filament {
     color: string
-    hex: string
+    hexes: string[]
 }
 
 // ─── Persistent settings (load before refs, avoids async-setup race) ───────
@@ -167,13 +167,31 @@ function onIcon1(e: Event) { handleFile(coverIcon1Url, e) }
 function onIcon2(e: Event) { handleFile(coverIcon2Url, e) }
 function setCardsPerPage(n: number) { cardsPerPage.value = n }
 function clearSheetUrl() { sheetUrl.value = '' }
+function swatchStyle(hexes: string[]): Record<string, string> {
+    if (hexes.length === 0) return {}
+    if (hexes.length === 1) return { background: hexes[0] }
+    const N = hexes.length
+    const half = Math.min(10, 100 / (2 * N) * 0.6)
+    const stops: string[] = []
+    hexes.forEach((h, i) => {
+        if (i === 0) {
+            stops.push(`${h} 0%`, h)
+        } else if (i === N - 1) {
+            stops.push(h, `${h} 100%`)
+        } else {
+            const center = (2 * i + 1) * 100 / (2 * N)
+            stops.push(`${h} ${+(center - half).toFixed(1)}%`, `${h} ${+(center + half).toFixed(1)}%`)
+        }
+    })
+    return { background: `linear-gradient(135deg, ${stops.join(', ')})` }
+}
 function toggleSettingsPanel() {
     panelOpen.value = !panelOpen.value
-    if (panelOpen.value && window.innerWidth < 1300) rightPanelOpen.value = false
+    if (panelOpen.value && window.innerWidth < 600) rightPanelOpen.value = false
 }
 function toggleCatalogPanel() {
     rightPanelOpen.value = !rightPanelOpen.value
-    if (rightPanelOpen.value && window.innerWidth < 1300) panelOpen.value = false
+    if (rightPanelOpen.value && window.innerWidth < 600) panelOpen.value = false
 }
 function toggleCategoryHidden(category: string) {
     const h = hiddenCategories.value
@@ -532,7 +550,11 @@ function triggerPrint() {
                     <p class="pr-colors__sub">All models can be printed in any of the following colors, subject to availability.</p>
                     <div class="pr-colors__grid">
                         <div v-for="filament in filaments" :key="filament.color" class="pr-colors__row">
-                            <span class="pr-colors__swatch" :style="{ background: filament.hex }" />
+                            <span
+                                class="pr-colors__swatch"
+                                :class="{ 'pr-colors__swatch--gradient': filament.hexes.length > 1 }"
+                                :style="swatchStyle(filament.hexes)"
+                            />
                             <span class="pr-colors__name">{{ filament.color }}</span>
                         </div>
                     </div>
@@ -757,7 +779,7 @@ function triggerPrint() {
 /* ≥1300px — sticky sidebar, toggleable */
 @media (min-width: 1300px) {
     .pr-panel {
-        width: 280px;
+        width: 325px;
         position: sticky;
         top: 56px;
         height: calc(100vh - 56px);
@@ -1531,6 +1553,10 @@ function triggerPrint() {
     flex-shrink: 0;
 }
 
+.pr-colors__swatch--gradient {
+    border: none;
+}
+
 .pr-colors__name {
     font-size: 0.85rem;
     color: #333;
@@ -1543,7 +1569,7 @@ function triggerPrint() {
 /* ≥1300px — sticky right sidebar */
 @media (min-width: 1300px) {
     .pr-panel--right {
-        width: 260px;
+        width: 325px;
         border-right: none;
         border-left: 1px solid rgba(255,255,255,0.06);
         position: sticky;

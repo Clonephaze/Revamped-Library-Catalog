@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --green: #2e7d32;
+            --green-dark: #1b5e20;
+            --green-light: #e8f5e9;
+            --accent: #ff6f00;
+            --text: #1a1a1a;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --bg: #f9fafb;
+            --white: #ffffff;
+            --error: #dc2626;
+            --radius: 8px;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+            padding-bottom: 24px;
+        }
+
+        .header {
+            background: var(--green);
+            color: white;
+            padding: 14px 16px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header h2 {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: .01em;
+        }
+
+        .form-body {
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        label span.req {
+            color: var(--accent);
+            margin-left: 2px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text);
+            background: var(--white);
+            transition: border-color .15s, box-shadow .15s;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--green);
+            box-shadow: 0 0 0 3px rgba(46, 125, 50, .12);
+        }
+
+        input.error,
+        select.error,
+        textarea.error {
+            border-color: var(--error);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .field-error {
+            font-size: 11px;
+            color: var(--error);
+            display: none;
+        }
+
+        .field-error.visible {
+            display: block;
+        }
+
+        /* URL row with fetch button */
+        .url-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .url-row input {
+            flex: 1;
+        }
+
+        .btn-fetch {
+            padding: 7px 10px;
+            background: var(--green-light);
+            color: var(--green-dark);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background .15s;
+            flex-shrink: 0;
+        }
+
+        .btn-fetch:hover {
+            background: #c8e6c9;
+        }
+
+        .btn-fetch:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        /* Auto-fill badge */
+        .autofill-badge {
+            font-size: 10px;
+            color: var(--green-dark);
+            background: var(--green-light);
+            border-radius: 4px;
+            padding: 2px 6px;
+            display: none;
+            align-self: flex-start;
+        }
+
+        .autofill-badge.visible {
+            display: inline-block;
+        }
+
+        /* Image preview */
+        .img-preview {
+            width: 100%;
+            max-height: 120px;
+            object-fit: cover;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            display: none;
+            margin-top: 4px;
+        }
+
+        .img-preview.visible {
+            display: block;
+        }
+
+        /* Chips (tags & categories) */
+        .chip-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .chip-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 6px 8px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--white);
+            min-height: 36px;
+            cursor: text;
+        }
+
+        .chip-wrap:focus-within {
+            border-color: var(--green);
+            box-shadow: 0 0 0 3px rgba(46, 125, 50, .12);
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--green-light);
+            color: var(--green-dark);
+            border-radius: 20px;
+            padding: 2px 9px 2px 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .chip button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            color: var(--green-dark);
+            font-size: 14px;
+            line-height: 1;
+            opacity: .7;
+            width: auto;
+            /* override global */
+        }
+
+        .chip button:hover {
+            opacity: 1;
+        }
+
+        .chip-input {
+            border: none !important;
+            outline: none !important;
+            padding: 2px 4px !important;
+            font-size: 12px;
+            flex: 1;
+            min-width: 80px;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        /* Chip dropdown */
+        .chip-dropdown-wrap {
+            position: relative;
+        }
+
+        .chip-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: var(--white);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+            max-height: 140px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .chip-dropdown.open {
+            display: block;
+        }
+
+        .chip-option {
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chip-option:hover {
+            background: var(--green-light);
+        }
+
+        .chip-option.selected {
+            color: var(--green-dark);
+            font-weight: 600;
+        }
+
+        .chip-option .check {
+            display: none;
+        }
+
+        .chip-option.selected .check {
+            display: inline;
+        }
+
+        .chip-new-hint {
+            padding: 7px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* add-new toggle row */
+        .add-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .add-row input {
+            flex: 1;
+            font-size: 12px;
+            display: none;
+        }
+
+        .btn-add-new {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--green-dark);
+            background: none;
+            border: 1px dashed var(--border);
+            border-radius: 20px;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .btn-add-new:hover {
+            background: var(--green-light);
+        }
+
+        .dup-warning {
+            background: #fff8e1;
+            border: 1px solid #f59e0b;
+            border-radius: var(--radius);
+            padding: 7px 10px;
+            font-size: 12px;
+            color: #92400e;
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dup-warning.visible {
+            display: flex;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 2px 0;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 11px;
+            background: var(--green);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            transition: background .15s, transform .1s;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background: var(--green-dark);
+        }
+
+        .btn-submit:active:not(:disabled) {
+            transform: scale(.98);
+        }
+
+        .btn-submit:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, .4);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1a1a1a;
+            color: white;
+            padding: 9px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s, transform .25s;
+            white-space: nowrap;
+            max-width: 90%;
+            text-align: center;
+            z-index: 999;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #toast.success {
+            background: var(--green-dark);
+        }
+
+        #toast.error {
+            background: var(--error);
+        }
+
+        /* ── Printables category suggestion pill ──────────────── */
+        .cat-suggest {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: #fff8e1;
+            border: 1px solid #f59e0b;
+            border-radius: var(--radius);
+            padding: 6px 10px;
+            font-size: 12px;
+            color: #92400e;
+            flex-wrap: wrap;
+        }
+
+        .cat-suggest span { flex: 1; }
+
+        .cat-suggest button {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            width: auto;
+        }
+
+        .cat-suggest button:first-of-type {
+            background: var(--accent);
+            color: white;
+        }
+
+        .cat-suggest button:last-of-type {
+            background: none;
+            color: var(--muted);
+            font-size: 14px;
+            padding: 0 4px;
+        }
+
+        /* ── Highlight next empty field ───────────────────────── */
+        @keyframes promptPulse {
+            0%   { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,111,0,.15); }
+            50%  { border-color: var(--accent); box-shadow: 0 0 0 6px rgba(255,111,0,.08); }
+            100% { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,111,0,.15); }
+        }
+
+        .highlight-prompt {
+            border-color: var(--accent) !important;
+            animation: promptPulse 1s ease 3;
+        }
+        @keyframes flashFillAnim {
+            0%   { background: #c8e6c9; }
+            100% { background: var(--white); }
+        }
+
+        .flash-fill { animation: flashFillAnim .7s ease; }
+
+        /* ── Fetch button spinner ──────────────────────────────── */
+        .btn-spinner {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            border: 2px solid rgba(27, 94, 32, .3);
+            border-top-color: var(--green-dark);
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            vertical-align: middle;
+        }
+
+        /* ── Tab bar ─────────────────────────────────────────────── */
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid var(--border);
+            background: var(--white);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 9px 0;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 601;
+            color: var(--muted);
+            cursor: pointer;
+            transition: color .15s, border-color .15s;
+            width: auto;
+        }
+
+        .tab-btn:hover { color: var(--text); }
+
+        .tab-btn.active {
+            color: var(--green-dark);
+            border-bottom-color: var(--green);
+        }
+
+        /* ── Color swatches ───────────────────────────────────────── */
+        .swatch-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .swatch-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 52px;
+        }
+
+        .swatch-preview,
+        .swatch-add-box {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius);
+        }
+
+        .swatch-preview { border: 2px solid var(--border); transition: border-color .15s; }
+
+        .swatch-add-box {
+            border: 2px dashed var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 22px;
+            line-height: 1;
+            transition: border-color .15s, color .15s;
+            cursor: pointer;
+        }
+
+        .swatch-wrap:hover .swatch-preview { border-color: var(--green); }
+        .swatch-wrap:hover .swatch-add-box { border-color: var(--green); color: var(--green); }
+
+        /* Transparent overlay — clicking swatch opens the browser colour picker */
+        .swatch-wrap input[type="color"] {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 52px !important;
+            height: 52px !important;
+            opacity: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .swatch-num {
+            font-size: 10px;
+            color: var(--muted);
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .swatch-rm {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 17px !important;
+            height: 17px !important;
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 11px;
+            cursor: pointer;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 !important;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        <h2>Catalog Tools</h2>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" id="tbCatalog" onclick="switchTab('catalog')">📦 Catalog</button>
+        <button class="tab-btn" id="tbFilament" onclick="switchTab('filament')">🎨 Filament</button>
+    </div>
+
+    <div id="tab-catalog">
+    <div class="form-body">
+
+        <!-- SOURCE URL (moved up — triggers auto-fill) -->
+        <div class="field">
+            <label>Source URL</label>
+            <div class="url-row">
+                <input id="source" type="url" placeholder="https://www.printables.com/…" oninput="onSourceInput()" onpaste="onSourcePaste()">
+                <button class="btn-fetch" id="fetchBtn" onclick="triggerFetch()" disabled>Fill ✦</button>
+            </div>
+            <span class="field-error" id="err-source">Please enter a valid URL.</span>
+        </div>
+
+        <!-- CATEGORY chip field -->
+        <div class="field chip-field">
+            <label>Category <span class="req">*</span></label>
+            <div class="chip-dropdown-wrap" id="catDropWrap">
+                <div class="chip-wrap" id="catChipWrap" onclick="focusCatInput()">
+                    <input class="chip-input" id="catInput" placeholder="Type or pick…" oninput="filterChipDropdown('cat')" onfocus="openDropdown('cat')" onkeydown="chipKeydown(event,'cat')">
+                </div>
+                <div class="chip-dropdown" id="catDropdown"></div>
+            </div>
+            <span class="field-error" id="err-category">Please select or add a category.</span>
+            <!-- Suggestion pill when Printables category doesn't match existing list -->
+            <div class="cat-suggest" id="catSuggest" style="display:none">
+                <span>Printables says: <strong id="catSuggestName"></strong></span>
+                <button onclick="acceptCatSuggestion()">Use it</button>
+                <button onclick="dismissCatSuggest()">&#x2715;</button>
+            </div>
+        </div>
+
+        <!-- NAME -->
+        <div class="field">
+            <label>Name <span class="req">*</span></label>
+            <div style="position:relative">
+                <input id="name" placeholder="e.g. Mini Creeper" oninput="onNameInput(this)">
+                <span class="autofill-badge" id="nameBadge">auto-filled</span>
+            </div>
+            <span class="field-error" id="err-name">Name is required.</span>
+        </div>
+
+        <div class="dup-warning" id="dupWarning">
+            <span>⚠️</span><span>An item with this name may already exist.</span>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="field">
+            <label>Description</label>
+            <textarea id="description" placeholder="Short description of the print…"></textarea>
+        </div>
+
+        <hr class="divider">
+
+        <!-- PRINT TIME -->
+        <div class="field">
+            <label>Print Time (minutes)</label>
+            <input id="printTime" type="number" min="0" placeholder="e.g. 25">
+        </div>
+
+        <!-- AUTHOR -->
+        <div class="field">
+            <label>Author</label>
+            <input id="author" placeholder="e.g. Mars3D">
+            <span class="autofill-badge" id="authorBadge">auto-filled</span>
+        </div>
+
+        <hr class="divider">
+
+        <!-- PICTURE URL -->
+        <div class="field">
+            <label>Picture URL</label>
+            <input id="picture" type="url" placeholder="Auto-filled or paste your own…" oninput="onPictureInput()">
+            <span class="autofill-badge" id="pictureBadge">auto-filled</span>
+            <img id="imgPreview" class="img-preview" alt="Preview">
+            <span class="field-error" id="err-picture">Please enter a valid URL.</span>
+        </div>
+
+        <!-- TAGS chip field -->
+        <div class="field chip-field">
+            <label>Tags (Optional)</label>
+            <div class="chip-dropdown-wrap" id="tagDropWrap">
+                <div class="chip-wrap" id="tagChipWrap" onclick="focusTagInput()">
+                    <input class="chip-input" id="tagInput" placeholder="Type or pick…" oninput="filterChipDropdown('tag')" onfocus="openDropdown('tag')" onkeydown="chipKeydown(event,'tag')">
+                </div>
+                <div class="chip-dropdown" id="tagDropdown"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Submit -->
+    <div style="padding: 0 16px;">
+        <button class="btn-submit" id="submitBtn" onclick="submitForm()">
+            <div class="spinner" id="spinner"></div>
+            <span id="btnLabel">Add Item</span>
+        </button>
+    </div>
+    </div><!-- /tab-catalog -->
+
+    <!-- ── Filament tab ──────────────────────────────────────────────── -->
+    <div id="tab-filament" style="display:none">
+        <div class="form-body">
+
+            <div class="field">
+                <label>Name <span class="req">*</span></label>
+                <input id="fil-name" placeholder="e.g. Blue PLA" oninput="clearFilErr()">
+                <span class="field-error" id="err-fil-name">Name is required.</span>
+            </div>
+
+            <div class="field">
+                <label>Colors</label>
+                <div class="swatch-row">
+
+                    <!-- Color 1 — required, always active -->
+                    <div class="swatch-wrap" id="sw0">
+                        <div class="swatch-preview" id="sp0" style="background:#3b82f6"></div>
+                        <input type="color" id="fc0" value="#3b82f6" oninput="onSwatchInput(0)">
+                        <span class="swatch-num">1<span class="req">*</span></span>
+                    </div>
+
+                    <!-- Colors 2-4 — optional; clicking opens colour picker & activates -->
+                    <div class="swatch-wrap" id="sw1">
+                        <div class="swatch-add-box" id="sa1">+</div>
+                        <div class="swatch-preview" id="sp1" style="display:none"></div>
+                        <input type="color" id="fc1" value="#22c55e" oninput="onSwatchInput(1)">
+                        <button class="swatch-rm" id="sr1" onclick="disableSwatch(1)" style="display:none">×</button>
+                        <span class="swatch-num">2</span>
+                    </div>
+
+                    <div class="swatch-wrap" id="sw2">
+                        <div class="swatch-add-box" id="sa2">+</div>
+                        <div class="swatch-preview" id="sp2" style="display:none"></div>
+                        <input type="color" id="fc2" value="#f59e0b" oninput="onSwatchInput(2)">
+                        <button class="swatch-rm" id="sr2" onclick="disableSwatch(2)" style="display:none">×</button>
+                        <span class="swatch-num">3</span>
+                    </div>
+
+                    <div class="swatch-wrap" id="sw3">
+                        <div class="swatch-add-box" id="sa3">+</div>
+                        <div class="swatch-preview" id="sp3" style="display:none"></div>
+                        <input type="color" id="fc3" value="#ef4444" oninput="onSwatchInput(3)">
+                        <button class="swatch-rm" id="sr3" onclick="disableSwatch(3)" style="display:none">×</button>
+                        <span class="swatch-num">4</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+        <div style="padding: 0 16px;">
+            <button class="btn-submit" id="filSubmitBtn" onclick="submitFilament()">
+                <div class="spinner" id="filSpinner"></div>
+                <span id="filBtnLabel">Add Filament</span>
+            </button>
+        </div>
+    </div><!-- /tab-filament -->
+
+    <div id="toast"></div>
+
+    <script>
+        // ─── State ────────────────────────────────────────────────────────────────────
+        const state = {
+            cat: { all: [], selected: null, inputEl: null, wrapEl: null, dropEl: null },
+            tag: { all: [], selected: [], inputEl: null, wrapEl: null, dropEl: null }
+        };
+
+        let dupCheckTimer = null;
+        let fetchTimer = null;
+
+        // ─── Init ─────────────────────────────────────────────────────────────────────
+        window.addEventListener('load', () => {
+            state.cat.inputEl = document.getElementById('catInput');
+            state.cat.wrapEl = document.getElementById('catChipWrap');
+            state.cat.dropEl = document.getElementById('catDropdown');
+
+            state.tag.inputEl = document.getElementById('tagInput');
+            state.tag.wrapEl = document.getElementById('tagChipWrap');
+            state.tag.dropEl = document.getElementById('tagDropdown');
+
+            // Close dropdowns on outside click
+            document.addEventListener('click', e => {
+                ['cat', 'tag'].forEach(k => {
+                    const wrap = document.getElementById(k === 'cat' ? 'catDropWrap' : 'tagDropWrap');
+                    if (!wrap.contains(e.target)) closeDropdown(k);
+                });
+            });
+
+            google.script.run.withSuccessHandler(cats => {
+                state.cat.all = cats;
+                renderDropdown('cat');
+            }).withFailureHandler(() => {
+                state.cat.all = ['Toys & Gadgets', 'Bookmarks', 'Educational & STEM'];
+                renderDropdown('cat');
+            }).getCategories();
+
+            google.script.run.withSuccessHandler(tags => {
+                state.tag.all = tags;
+                renderDropdown('tag');
+            }).withFailureHandler(() => { }).getTags();
+        });
+
+        // ─── Chip helpers ─────────────────────────────────────────────────────────────
+        function focusCatInput() { state.cat.inputEl.focus(); }
+        function focusTagInput() { state.tag.inputEl.focus(); }
+
+        function openDropdown(k) {
+            renderDropdown(k);
+            state[k].dropEl.classList.add('open');
+        }
+        function closeDropdown(k) { state[k].dropEl.classList.remove('open'); }
+
+        function filterChipDropdown(k) {
+            renderDropdown(k);
+            openDropdown(k);
+        }
+
+        function renderDropdown(k) {
+            const s = state[k];
+            const query = s.inputEl.value.trim().toLowerCase();
+            const isTag = k === 'tag';
+            const items = s.all.filter(v =>
+                (!query || v.toLowerCase().includes(query)) &&
+                (isTag ? !s.selected.includes(v) : s.selected !== v)
+            );
+
+            let html = '';
+            if (items.length) {
+                html = items.map(v =>
+                    `<div class="chip-option" onclick="selectChipItem('${k}','${escQ(v)}')">${v}</div>`
+                ).join('');
+            }
+            if (query && !s.all.some(v => v.toLowerCase() === query)) {
+                html += `<div class="chip-new-hint" onclick="addNewChipItem('${k}')">
+               ➕ Add "<strong>${escHtml(s.inputEl.value.trim())}</strong>"
+             </div>`;
+            }
+            if (!html) html = `<div class="chip-new-hint">No options found.</div>`;
+            s.dropEl.innerHTML = html;
+        }
+
+        function selectChipItem(k, value) {
+            if (k === 'cat') {
+                state.cat.selected = value;
+                renderCatChip();
+                setError('category', false);
+            } else {
+                if (!state.tag.selected.includes(value)) {
+                    state.tag.selected.push(value);
+                    renderTagChips();
+                }
+            }
+            state[k].inputEl.value = '';
+            closeDropdown(k);
+        }
+
+        function addNewChipItem(k) {
+            const val = state[k].inputEl.value.trim();
+            if (!val) return;
+            if (!state[k].all.includes(val)) state[k].all.push(val);
+            selectChipItem(k, val);
+        }
+
+        function chipKeydown(e, k) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const val = state[k].inputEl.value.trim();
+                if (val) addNewChipItem(k);
+            }
+            if (e.key === 'Escape') closeDropdown(k);
+            if (e.key === 'Backspace' && !state[k].inputEl.value) {
+                if (k === 'tag' && state.tag.selected.length) {
+                    state.tag.selected.pop();
+                    renderTagChips();
+                } else if (k === 'cat' && state.cat.selected) {
+                    state.cat.selected = null;
+                    renderCatChip();
+                }
+            }
+        }
+
+        function removeChip(k, value) {
+            if (k === 'cat') { state.cat.selected = null; renderCatChip(); }
+            else {
+                state.tag.selected = state.tag.selected.filter(v => v !== value);
+                renderTagChips();
+            }
+        }
+
+        function renderCatChip() {
+            const w = state.cat.wrapEl;
+            // Remove existing chip (not the input)
+            w.querySelectorAll('.chip').forEach(el => el.remove());
+            if (state.cat.selected) {
+                const chip = makeChip('cat', state.cat.selected);
+                w.insertBefore(chip, state.cat.inputEl);
+                state.cat.inputEl.placeholder = '';
+            } else {
+                state.cat.inputEl.placeholder = 'Type or pick…';
+            }
+        }
+
+        function renderTagChips() {
+            const w = state.tag.wrapEl;
+            w.querySelectorAll('.chip').forEach(el => el.remove());
+            state.tag.selected.forEach(v => {
+                const chip = makeChip('tag', v);
+                w.insertBefore(chip, state.tag.inputEl);
+            });
+            state.tag.inputEl.placeholder = state.tag.selected.length ? '' : 'Type or pick…';
+        }
+
+        function makeChip(k, value) {
+            const div = document.createElement('div');
+            div.className = 'chip';
+            div.innerHTML = `${escHtml(value)}<button onclick="removeChip('${k}','${escQ(value)}')" title="Remove">×</button>`;
+            return div;
+        }
+
+        // ─── Source URL → auto-fill ───────────────────────────────────────────────────
+        function onSourceInput() {
+            const val = document.getElementById('source').value.trim();
+            document.getElementById('fetchBtn').disabled = !isPrintablesUrl(val);
+            setError('source', val && !isValidUrl(val));
+        }
+
+        function onSourcePaste() {
+            setTimeout(() => {
+                const val = document.getElementById('source').value.trim();
+                if (isPrintablesUrl(val)) triggerFetch();
+            }, 100);
+        }
+
+        function isPrintablesUrl(url) {
+            return /printables\.com\/model\//i.test(url);
+        }
+
+        function triggerFetch() {
+            const url = document.getElementById('source').value.trim();
+            if (!url || !isValidUrl(url)) return;
+            const btn = document.getElementById('fetchBtn');
+            btn.innerHTML = '<span class="btn-spinner"></span>';
+            btn.disabled = true;
+            google.script.run
+                .withSuccessHandler(data => {
+                    btn.innerHTML = 'Fill ✦';
+                    btn.disabled = false;
+                    if (data.error) { showToast('⚠ ' + data.error, 'error'); return; }
+                    let filled = [];
+
+                    if (data.title && !document.getElementById('name').value) {
+                        flashFill('name', data.title);
+                        showBadge('nameBadge');
+                        filled.push('name');
+                    }
+                    // Try to auto-select category from Printables breadcrumb
+                    if (data.printablesCategory && !state.cat.selected) {
+                        const match = state.cat.all.find(c => c.toLowerCase() === data.printablesCategory.toLowerCase());
+                        if (match) {
+                            selectChipItem('cat', match);
+                            filled.push('category');
+                        } else {
+                            // No exact match — show suggestion pill so user can add it
+                            document.getElementById('catSuggestName').textContent = data.printablesCategory;
+                            document.getElementById('catSuggest').style.display = 'flex';
+                            state._catSuggestion = data.printablesCategory;
+                        }
+                    }
+                    if (data.description && !document.getElementById('description').value) {
+                        flashFill('description', data.description);
+                        filled.push('description');
+                    }
+                    if (data.author && !document.getElementById('author').value) {
+                        flashFill('author', data.author);
+                        showBadge('authorBadge');
+                        filled.push('author');
+                    }
+                    if (data.image && !document.getElementById('picture').value) {
+                        flashFill('picture', data.image);
+                        showBadge('pictureBadge');
+                        updateImgPreview(data.image);
+                        filled.push('image');
+                    }
+                    // Normalise source URL to canonical form
+                    if (data.source) {
+                        document.getElementById('source').value = data.source;
+                    }
+                    // Auto-fill tags
+                    if (data.tags && data.tags.length && !state.tag.selected.length) {
+                        data.tags.forEach(tag => {
+                            if (!state.tag.all.includes(tag)) state.tag.all.push(tag);
+                            if (!state.tag.selected.includes(tag)) state.tag.selected.push(tag);
+                        });
+                        renderTagChips();
+                        filled.push('tags');
+                    }
+                    if (filled.length) showToast('✦ Filled: ' + filled.join(', '), 'success');
+                    else showToast('Fetched — fields already filled.', '');
+                    setTimeout(highlightNextEmpty, 400);
+                })
+                .withFailureHandler(err => {
+                    btn.innerHTML = 'Fill ✦';
+                    btn.disabled = false;
+                    showToast('Fetch failed: ' + err.message, 'error');
+                })
+                .fetchPrintablesData(url);
+        }
+
+        // ─── Category suggestion pill ─────────────────────────────────────────────────
+        function acceptCatSuggestion() {
+            const val = state._catSuggestion;
+            if (!val) return;
+            if (!state.cat.all.includes(val)) state.cat.all.push(val);
+            selectChipItem('cat', val);
+            dismissCatSuggest();
+        }
+
+        function dismissCatSuggest() {
+            document.getElementById('catSuggest').style.display = 'none';
+            state._catSuggestion = null;
+        }
+
+        // ─── Highlight next field needing input ──────────────────────────────────────
+        function highlightNextEmpty() {
+            var target = null;
+            var focusEl = null;
+            if (!state.cat.selected) {
+                target = state.cat.wrapEl;
+                focusEl = state.cat.inputEl;
+            } else if (!document.getElementById('description').value.trim()) {
+                target = document.getElementById('description');
+                focusEl = target;
+            } else if (!state.tag.selected.length) {
+                target = state.tag.wrapEl;
+                focusEl = state.tag.inputEl;
+            }
+            if (!target) return;
+            target.classList.add('highlight-prompt');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            focusEl.focus();
+            setTimeout(() => target.classList.remove('highlight-prompt'), 3200);
+        }
+
+        function showBadge(id) {
+            const el = document.getElementById(id);
+            el.classList.add('visible');
+            setTimeout(() => el.classList.remove('visible'), 4000);
+        }
+
+        function flashFill(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = value;
+            el.classList.remove('flash-fill');
+            void el.offsetWidth; // force reflow so animation restarts
+            el.classList.add('flash-fill');
+            setTimeout(() => el.classList.remove('flash-fill'), 700);
+        }
+
+        // ─── Picture preview ──────────────────────────────────────────────────────────
+        function onPictureInput() {
+            const val = document.getElementById('picture').value.trim();
+            setError('picture', val && !isValidUrl(val));
+            updateImgPreview(val);
+            document.getElementById('pictureBadge').classList.remove('visible');
+        }
+
+        function updateImgPreview(url) {
+            const img = document.getElementById('imgPreview');
+            if (url && isValidUrl(url)) {
+                img.src = url;
+                img.classList.add('visible');
+                img.onerror = () => img.classList.remove('visible');
+            } else {
+                img.classList.remove('visible');
+                img.src = '';
+            }
+        }
+
+        // ─── Duplicate check ──────────────────────────────────────────────────────────
+        function onNameInput(el) {
+            clearTimeout(dupCheckTimer);
+            const val = el.value.trim();
+            document.getElementById('dupWarning').classList.remove('visible');
+            document.getElementById('nameBadge').classList.remove('visible');
+            if (val.length < 2) return;
+            dupCheckTimer = setTimeout(() => {
+                google.script.run
+                    .withSuccessHandler(isDup => {
+                        document.getElementById('dupWarning').classList.toggle('visible', isDup);
+                    })
+                    .checkDuplicate(val);
+            }, 500);
+        }
+
+        // ─── Validation ───────────────────────────────────────────────────────────────
+        function isValidUrl(str) {
+            if (!str) return true;
+            try { new URL(str); return true; } catch { return false; }
+        }
+
+        function validate() {
+            let ok = true;
+            if (!state.cat.selected) { setError('category', true); ok = false; }
+            else setError('category', false);
+            const name = document.getElementById('name').value.trim();
+            setError('name', !name); if (!name) ok = false;
+            ['source', 'picture'].forEach(id => {
+                const val = document.getElementById(id).value.trim();
+                const bad = val && !isValidUrl(val);
+                setError(id, bad); if (bad) ok = false;
+            });
+            return ok;
+        }
+
+        function setError(id, show) {
+            const errEl = document.getElementById('err-' + id);
+            let inputEl;
+            if (id === 'category') {
+                inputEl = state.cat.wrapEl;
+            } else {
+                inputEl = document.getElementById(id);
+            }
+            if (errEl) errEl.classList.toggle('visible', show);
+            if (inputEl) inputEl.classList.toggle('error', show);
+        }
+
+        // ─── Submit ───────────────────────────────────────────────────────────────────
+        function setLoading(on) {
+            document.getElementById('submitBtn').disabled = on;
+            document.getElementById('spinner').style.display = on ? 'block' : 'none';
+            document.getElementById('btnLabel').textContent = on ? 'Adding…' : 'Add Item';
+        }
+
+        function submitForm() {
+            if (!validate()) { showToast('Please fix the errors above.', 'error'); return; }
+            const data = {
+                category: state.cat.selected,
+                name: document.getElementById('name').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                printTime: document.getElementById('printTime').value,
+                author: document.getElementById('author').value.trim(),
+                source: document.getElementById('source').value.trim(),
+                picture: document.getElementById('picture').value.trim(),
+                tags: state.tag.selected.join(', ')
+            };
+            setLoading(true);
+            google.script.run
+                .withSuccessHandler(res => {
+                    setLoading(false);
+                    showToast(`✓ "${res.name}" added!`, 'success');
+                    clearForm();
+                })
+                .withFailureHandler(err => {
+                    setLoading(false);
+                    showToast('Error: ' + err.message, 'error');
+                })
+                .addItem(data);
+        }
+
+        function clearForm() {
+            document.querySelectorAll('input:not(.chip-input), textarea').forEach(el => el.value = '');
+            state.cat.selected = null; renderCatChip();
+            state.tag.selected = []; renderTagChips();
+            document.getElementById('dupWarning').classList.remove('visible');
+            document.getElementById('imgPreview').classList.remove('visible');
+            ['name', 'category', 'source', 'picture'].forEach(id => setError(id, false));
+            document.getElementById('fetchBtn').disabled = true;
+            document.getElementById('fetchBtn').innerHTML = 'Fill ✦';
+            dismissCatSuggest();
+        }
+
+        // ─── Toast ────────────────────────────────────────────────────────────────────
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'show ' + (type || '');
+            setTimeout(() => { t.className = ''; }, 3000);
+        }
+
+        // ─── Util ─────────────────────────────────────────────────────────────────────
+        function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function escQ(s) { return s.replace(/'/g, "\\'"); }
+
+        // ─── Tab switching ────────────────────────────────────────────────────────────
+        function switchTab(tab) {
+            document.getElementById('tab-catalog').style.display  = tab === 'catalog'  ? '' : 'none';
+            document.getElementById('tab-filament').style.display = tab === 'filament' ? '' : 'none';
+            document.getElementById('tbCatalog').classList.toggle('active',  tab === 'catalog');
+            document.getElementById('tbFilament').classList.toggle('active', tab === 'filament');
+        }
+
+        // ─── Filament colour swatches ─────────────────────────────────────────────────
+        const filColors = [
+            { active: true,  value: '#3b82f6' },
+            { active: false, value: '#22c55e' },
+            { active: false, value: '#f59e0b' },
+            { active: false, value: '#ef4444' },
+        ];
+
+        // Called by oninput on hidden colour inputs; activates swatch on first pick
+        function onSwatchInput(i) {
+            const val = document.getElementById('fc' + i).value;
+            filColors[i].value  = val;
+            filColors[i].active = true;
+            document.getElementById('sp' + i).style.background = val;
+            document.getElementById('sp' + i).style.display    = '';
+            const addBox = document.getElementById('sa' + i);
+            if (addBox) addBox.style.display = 'none';
+            const rmBtn = document.getElementById('sr' + i);
+            if (rmBtn) rmBtn.style.display = '';
+        }
+
+        function disableSwatch(i) {
+            filColors[i].active = false;
+            document.getElementById('sp' + i).style.display = 'none';
+            const addBox = document.getElementById('sa' + i);
+            if (addBox) addBox.style.display = '';
+            const rmBtn = document.getElementById('sr' + i);
+            if (rmBtn) rmBtn.style.display = 'none';
+        }
+
+        function clearFilErr() {
+            document.getElementById('err-fil-name').classList.remove('visible');
+            document.getElementById('fil-name').classList.remove('error');
+        }
+
+        // ─── Submit filament ──────────────────────────────────────────────────────────
+        function submitFilament() {
+            const nameEl = document.getElementById('fil-name');
+            const name   = nameEl.value.trim();
+            if (!name) {
+                document.getElementById('err-fil-name').classList.add('visible');
+                nameEl.classList.add('error');
+                return;
+            }
+            clearFilErr();
+            const data = {
+                name:   name,
+                color1: filColors[0].value,
+                color2: filColors[1].active ? filColors[1].value : null,
+                color3: filColors[2].active ? filColors[2].value : null,
+                color4: filColors[3].active ? filColors[3].value : null,
+            };
+            const btn = document.getElementById('filSubmitBtn');
+            btn.disabled = true;
+            document.getElementById('filSpinner').style.display = 'block';
+            document.getElementById('filBtnLabel').textContent  = 'Adding\u2026';
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    btn.disabled = false;
+                    document.getElementById('filSpinner').style.display = 'none';
+                    document.getElementById('filBtnLabel').textContent  = 'Add Filament';
+                    showToast('\u2713 "' + res.name + '" added!', 'success');
+                    clearFilamentForm();
+                })
+                .withFailureHandler(function(err) {
+                    btn.disabled = false;
+                    document.getElementById('filSpinner').style.display = 'none';
+                    document.getElementById('filBtnLabel').textContent  = 'Add Filament';
+                    showToast('Error: ' + err.message, 'error');
+                })
+                .addFilament(data);
+        }
+
+        function clearFilamentForm() {
+            document.getElementById('fil-name').value = '';
+            clearFilErr();
+            filColors[0] = { active: true,  value: '#3b82f6' };
+            filColors[1] = { active: false, value: '#22c55e' };
+            filColors[2] = { active: false, value: '#f59e0b' };
+            filColors[3] = { active: false, value: '#ef4444' };
+            document.getElementById('sp0').style.background = filColors[0].value;
+            document.getElementById('fc0').value            = filColors[0].value;
+            [1, 2, 3].forEach(function(i) {
+                document.getElementById('fc' + i).value = filColors[i].value;
+                disableSwatch(i);
+            });
+        }
+    </script>
+</body>
+</html>
