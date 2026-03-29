@@ -302,24 +302,44 @@ const packedPages = computed((): CatalogPage[] => {
         }
     }
 
-    for (const group of orderedVisibleGroups.value) {
-        let remaining = [...group.items]
-        let isFirstChunk = true
-        while (remaining.length > 0) {
-            const headingCost = 0
-            let effective = slotsRemaining - headingCost
-            if (effective <= 0) {
-                flushPage()
-                effective = cpp - headingCost
+    function packItems(groups: { category: string; items: CatalogItem[] }[]) {
+        for (const group of groups) {
+            if (!group.items.length) continue
+            let remaining = [...group.items]
+            let isFirstChunk = true
+            while (remaining.length > 0) {
+                let effective = slotsRemaining
+                if (effective <= 0) {
+                    flushPage()
+                    effective = cpp
+                }
+                const chunkSize = Math.min(effective, remaining.length)
+                const chunk = remaining.splice(0, chunkSize)
+                currentSections.push({ category: group.category, showHeading: isFirstChunk, items: chunk })
+                slotsRemaining -= chunkSize
+                if (slotsRemaining <= 0) flushPage()
+                isFirstChunk = false
             }
-            const chunkSize = Math.min(effective, remaining.length)
-            const chunk = remaining.splice(0, chunkSize)
-            currentSections.push({ category: group.category, showHeading: isFirstChunk, items: chunk })
-            slotsRemaining -= chunkSize + headingCost
-            if (slotsRemaining <= 0) flushPage()
-            isFirstChunk = false
         }
     }
+
+    // When featuredFirst is on, do two passes: tagged items from all categories first,
+    // then non-tagged items from all categories — both in category order.
+    if (featuredFirst.value) {
+        const tagged = orderedVisibleGroups.value.map(g => ({
+            category: g.category,
+            items: g.items.filter(i => i.tags?.length),
+        }))
+        const untagged = orderedVisibleGroups.value.map(g => ({
+            category: g.category,
+            items: g.items.filter(i => !i.tags?.length),
+        }))
+        packItems(tagged)
+        packItems(untagged)
+    } else {
+        packItems(orderedVisibleGroups.value)
+    }
+
     flushPage()
     return result
 })
