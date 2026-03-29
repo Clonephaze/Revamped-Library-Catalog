@@ -78,20 +78,28 @@ const showColorsPage    = ref<boolean>(_saved.showColorsPage    ?? true)
 const showCardImages    = ref<boolean>(_saved.showCardImages    ?? true)
 const showPageNumbers   = ref<boolean>(_saved.showPageNumbers   ?? false)
 const showLibraryHeader = ref<boolean>(_saved.showLibraryHeader ?? false)
+const packPages         = ref<boolean>(_saved.packPages         ?? false)
 
 // ─── Panels ───────────────────────────────────────────────────
 const panelOpen      = ref(true)
 const rightPanelOpen = ref(true)
 
 // ─── Category / sort state ────────────────────────────────────
-const categoryOrder    = ref<string[]>(Array.isArray(_saved.categoryOrder)    ? _saved.categoryOrder    : [])
-const hiddenCategories = ref<string[]>(Array.isArray(_saved.hiddenCategories) ? _saved.hiddenCategories : [])
-const itemSort         = ref<'name-asc'|'name-desc'|'time-asc'|'time-desc'>(_saved.itemSort ?? 'name-asc')
-const featuredFirst    = ref<boolean>(_saved.featuredFirst ?? false)
+// NOTE: These start with defaults (matching SSR) and get restored
+// from localStorage in onMounted to avoid hydration mismatch.
+const categoryOrder    = ref<string[]>([])
+const hiddenCategories = ref<string[]>([])
+const itemSort         = ref<'name-asc'|'name-desc'|'time-asc'|'time-desc'>('name-asc')
+const featuredFirst    = ref<boolean>(false)
 const featuredTag      = ref<string>(_saved.featuredTag    ?? 'Featured')
 
 onMounted(() => {
     if (window.innerWidth < 640) { panelOpen.value = false; rightPanelOpen.value = false }
+    // Restore order-dependent settings after hydration
+    if (Array.isArray(_saved.categoryOrder))    categoryOrder.value    = _saved.categoryOrder
+    if (Array.isArray(_saved.hiddenCategories)) hiddenCategories.value = _saved.hiddenCategories
+    if (_saved.itemSort)     itemSort.value     = _saved.itemSort
+    if (_saved.featuredFirst != null) featuredFirst.value = _saved.featuredFirst
 })
 
 // Persist whenever any setting changes
@@ -99,7 +107,7 @@ watch(
     [sheetUrl, libraryName, coverMessage, coverColor, accentColor, coverTitle,
      photoTintColor, photoTintOpacity, cardsPerPage, pageSize,
      showCover, showColorsPage, showCardImages, showPageNumbers, showLibraryHeader,
-     categoryOrder, hiddenCategories, itemSort, featuredFirst, featuredTag],
+     packPages, categoryOrder, hiddenCategories, itemSort, featuredFirst, featuredTag],
     () => {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -118,6 +126,7 @@ watch(
                 showCardImages:    showCardImages.value,
                 showPageNumbers:   showPageNumbers.value,
                 showLibraryHeader: showLibraryHeader.value,
+                packPages:         packPages.value,
                 categoryOrder:     categoryOrder.value,
                 hiddenCategories:  hiddenCategories.value,
                 itemSort:          itemSort.value,
@@ -261,20 +270,64 @@ const orderedVisibleGroups = computed(() => {
         })
 })
 
-// Flatten into pages with page numbers
-const pages = computed(() => {
-    const result: { category: string; showHeading: boolean; items: CatalogItem[]; pageNum: number }[] = []
+// ─── Page types ─────────────────────────────────────────────
+interface PageSection { category: string; showHeading: boolean; items: CatalogItem[] }
+interface CatalogPage  { sections: PageSection[]; pageNum: number }
+
+// Flatten into pages — one category-chunk per page (default mode)
+const pages = computed((): CatalogPage[] => {
+    const result: CatalogPage[] = []
     let n = showCover.value ? 2 : 1
     for (const group of orderedVisibleGroups.value) {
         splitIntoChunks(group.items, cardsPerPage.value).forEach((chunk, i) => {
-            result.push({ category: group.category, showHeading: i === 0, items: chunk, pageNum: n++ })
+            result.push({ sections: [{ category: group.category, showHeading: i === 0, items: chunk }], pageNum: n++ })
         })
     }
     return result
 })
 
+// Pack-pages mode — bin-pack across categories, heading costs 1 slot
+const packedPages = computed((): CatalogPage[] => {
+    const result: CatalogPage[] = []
+    let n = showCover.value ? 2 : 1
+    const cpp = cardsPerPage.value
+    let currentSections: PageSection[] = []
+    let slotsRemaining = cpp
+
+    function flushPage() {
+        if (currentSections.length) {
+            result.push({ sections: currentSections, pageNum: n++ })
+            currentSections = []
+            slotsRemaining = cpp
+        }
+    }
+
+    for (const group of orderedVisibleGroups.value) {
+        let remaining = [...group.items]
+        let isFirstChunk = true
+        while (remaining.length > 0) {
+            const headingCost = 0
+            let effective = slotsRemaining - headingCost
+            if (effective <= 0) {
+                flushPage()
+                effective = cpp - headingCost
+            }
+            const chunkSize = Math.min(effective, remaining.length)
+            const chunk = remaining.splice(0, chunkSize)
+            currentSections.push({ category: group.category, showHeading: isFirstChunk, items: chunk })
+            slotsRemaining -= chunkSize + headingCost
+            if (slotsRemaining <= 0) flushPage()
+            isFirstChunk = false
+        }
+    }
+    flushPage()
+    return result
+})
+
+const activeCatalogPages = computed(() => packPages.value ? packedPages.value : pages.value)
+
 const totalPages = computed(() => {
-    let n = pages.value.length
+    let n = activeCatalogPages.value.length
     if (showCover.value) n++
     if (showColorsPage.value && filaments.value?.length) n++
     return n
@@ -435,6 +488,10 @@ function triggerPrint() {
                             <button class="pr-panel__seg-btn" :class="{ active: pageSize === 'a4' }" @click="pageSize = 'a4'">A4</button>
                         </div>
                     </div>
+                    <label class="pr-panel__toggle-row">
+                        <span>Pack categories</span>
+                        <span class="pr-panel__switch"><input v-model="packPages" type="checkbox" /><span /></span>
+                    </label>
                 </div>
 
                 <!-- � Visibility -->
@@ -510,32 +567,59 @@ function triggerPrint() {
                 </div>
 
                 <!-- Catalog pages -->
-                <div v-for="(page, pageIdx) in pages" :key="pageIdx" class="pr-page pr-catalog" :style="pageStyle">
+                <div v-for="(page, pageIdx) in activeCatalogPages" :key="page.sections.map(s => s.category).join('/') + '-' + pageIdx" class="pr-page pr-catalog" :style="pageStyle">
                     <div v-if="showLibraryHeader" class="pr-page-header">
                         <span class="pr-page-header__name">{{ libraryName }}</span>
                         <span class="pr-page-header__label">3D Print Catalog</span>
                     </div>
-                    <div v-if="page.showHeading" class="pr-cat-heading">
-                        <h2 :style="{ color: accentColor, borderBottomColor: accentColor }">{{ page.category }}</h2>
-                    </div>
-                    <div class="pr-grid" :class="`pr-grid--${cardsPerPage}`">
-                        <div v-for="item in page.items" :key="item.modelId" class="pr-card">
-                            <div v-if="showCardImages" class="pr-card__img" :class="{ 'pr-card__img--empty': !item.imageUrl }">
-                                <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
-                                <span v-else aria-hidden="true">🖨</span>
-                            </div>
-                            <div class="pr-card__body">
-                                <h3 class="pr-card__name">{{ item.name }}</h3>
-                                <p class="pr-card__meta">
-                                    <span>⏱ {{ formatTime(item.printTimeMinutes) }}</span>
-                                    <span v-if="item.author" class="pr-card__author">by {{ item.author }}</span>
-                                </p>
-                                <p class="pr-card__desc">{{ item.description }}</p>
-                                <div v-if="item.tags?.length" class="pr-card__tags">
-                                    <span v-for="tag in item.tags" :key="tag" class="pr-tag">{{ tag }}</span>
+                    <!-- Normal mode: category headings + per-section grids -->
+                    <template v-if="!packPages" v-for="(section, si) in page.sections" :key="section.category + '-' + si">
+                        <div v-if="section.showHeading" class="pr-cat-heading">
+                            <h2 :style="{ color: accentColor, borderBottomColor: accentColor }">{{ section.category }}</h2>
+                        </div>
+                        <div class="pr-grid" :class="`pr-grid--${cardsPerPage}`">
+                            <div v-for="item in section.items" :key="item.modelId" class="pr-card">
+                                <div v-if="showCardImages" class="pr-card__img" :class="{ 'pr-card__img--empty': !item.imageUrl }">
+                                    <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
+                                    <span v-else aria-hidden="true">🖨</span>
+                                </div>
+                                <div class="pr-card__body">
+                                    <h3 class="pr-card__name">{{ item.name }}</h3>
+                                    <p class="pr-card__meta">
+                                        <span>⏱ {{ formatTime(item.printTimeMinutes) }}</span>
+                                        <span v-if="item.author" class="pr-card__author">by {{ item.author }}</span>
+                                    </p>
+                                    <p class="pr-card__desc">{{ item.description }}</p>
+                                    <div v-if="item.tags?.length" class="pr-card__tags">
+                                        <span v-for="tag in item.tags" :key="tag" class="pr-tag">{{ tag }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </template>
+
+                    <!-- Pack mode: flat grid, no headings, category pill per card -->
+                    <div v-else class="pr-grid" :class="`pr-grid--${cardsPerPage}`">
+                        <template v-for="(section, si) in page.sections" :key="section.category + '-' + si">
+                            <div v-for="item in section.items" :key="item.modelId" class="pr-card">
+                                <div v-if="showCardImages" class="pr-card__img" :class="{ 'pr-card__img--empty': !item.imageUrl }">
+                                    <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
+                                    <span v-else aria-hidden="true">🖨</span>
+                                </div>
+                                <div class="pr-card__body">
+                                    <span class="pr-card__cat-pill" :style="{ color: accentColor }">{{ item.category }}</span>
+                                    <h3 class="pr-card__name">{{ item.name }}</h3>
+                                    <p class="pr-card__meta">
+                                        <span>⏱ {{ formatTime(item.printTimeMinutes) }}</span>
+                                        <span v-if="item.author" class="pr-card__author">by {{ item.author }}</span>
+                                    </p>
+                                    <p class="pr-card__desc">{{ item.description }}</p>
+                                    <div v-if="item.tags?.length" class="pr-card__tags">
+                                        <span v-for="tag in item.tags" :key="tag" class="pr-tag">{{ tag }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                     <div v-if="showPageNumbers || showLibraryHeader" class="pr-page-footer">
                         <span v-if="showLibraryHeader" class="pr-page-footer__name">{{ libraryName }}</span>
@@ -645,8 +729,8 @@ function triggerPrint() {
                     <div class="pr-panel__field">
                         <span>Item Order</span>
                         <div class="pr-panel__seg">
-                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-asc' }" @click="itemSort = 'name-asc'">A–Z</button>
-                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-desc' }" @click="itemSort = 'name-desc'">Z–A</button>
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-asc' }" @click="itemSort = 'name-asc'">A-Z</button>
+                            <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'name-desc' }" @click="itemSort = 'name-desc'">Z-A</button>
                             <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'time-asc' }" @click="itemSort = 'time-asc'">⏱↑</button>
                             <button class="pr-panel__seg-btn" :class="{ active: itemSort === 'time-desc' }" @click="itemSort = 'time-desc'">⏱↓</button>
                         </div>
@@ -802,7 +886,7 @@ function triggerPrint() {
     }
 }
 
-/* 640–1299px — fixed overlay drawers (left from left, right from right) */
+/* 640-1299px — fixed overlay drawers (left from left, right from right) */
 @media (min-width: 640px) and (max-width: 1299px) {
     .pr-content { flex-direction: row; }
     .pr-panel {
@@ -1170,7 +1254,7 @@ function triggerPrint() {
 .pr-page {
     background: white;
     width: 8.5in;
-    min-height: 11in;
+    /* min-height: 11in; */
     margin: 1rem auto;
     padding: 0.6in 0.65in 0.5in;
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
@@ -1500,6 +1584,20 @@ function triggerPrint() {
     overflow: hidden;
 }
 
+.pr-card__cat-pill {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 1px 5px;
+    border-radius: 100px;
+    border: 1px solid currentColor;
+    opacity: 0.75;
+    margin-bottom: 3px;
+    align-self: flex-start;
+}
+
 .pr-card__tags {
     display: flex;
     flex-wrap: wrap;
@@ -1587,7 +1685,7 @@ function triggerPrint() {
     }
 }
 
-/* 640–1299px — fixed overlay drawer from right */
+/* 640-1299px — fixed overlay drawer from right */
 @media (min-width: 640px) and (max-width: 1299px) {
     .pr-panel--right {
         position: fixed;
@@ -1714,10 +1812,11 @@ function triggerPrint() {
     @page {
         size: letter;
         margin: 0;
+        background: unset !important;
     }
-
+    
     .pr {
-        background: white !important;
+        background: unset !important;
         padding-top: 0;
     }
 
@@ -1725,14 +1824,17 @@ function triggerPrint() {
         display: none !important;
     }
 
+    .pr-pages {
+        padding: 0;
+        margin: 0;
+    }
+
     .pr-page {
         width: 100%;
-        min-height: 100vh;
         margin: 0;
         padding: 0.6in 0.65in 0.5in;
         box-shadow: none;
-        page-break-after: always;
-        break-after: always;
+        /* break-after: always; */
     }
 
 
@@ -1740,6 +1842,9 @@ function triggerPrint() {
     .pr-colors {
         page-break-before: always;
         break-before: always;
+        min-height: unset !important;
+        max-height: 100vh !important;
+        overflow: hidden;
     }
 }
 </style>
